@@ -627,6 +627,53 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
         </div>
       </div>
 
+      {/* Netlify & Multi-Device Global Sync Guide */}
+      <div className="bg-white rounded-2xl border-2 border-[#936B3B]/30 p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#936B3B]/10 flex items-center justify-center text-[#936B3B]">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-[#201D1A]">
+                Multi-Device & Netlify Automatic Database Connection
+              </h3>
+              <p className="text-xs text-[#786F66]">
+                Make your database connect automatically on <strong>any device</strong> (mobile, laptop, or customer visits on Netlify).
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              const netlifyEnv = `VITE_SUPABASE_URL=${supabaseUrlInput || 'https://cprgtuyfytwfhigofvsj.supabase.co'}\nVITE_SUPABASE_ANON_KEY=${supabaseKeyInput || 'your-anon-key'}`;
+              navigator.clipboard.writeText(netlifyEnv);
+              setCopiedEnv(true);
+              showToast('success', 'Netlify Environment Variables copied to clipboard!');
+              setTimeout(() => setCopiedEnv(false), 3000);
+            }}
+            className="px-4 py-2 bg-[#24201D] hover:bg-[#936B3B] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto shadow-2xs"
+          >
+            {copiedEnv ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedEnv ? 'Copied Netlify Config!' : 'Copy Netlify Environment Variables'}</span>
+          </button>
+        </div>
+
+        <div className="bg-[#FAF8F5] p-4 rounded-xl border border-[#EAE4DC] space-y-3">
+          <p className="text-xs text-[#463F38] leading-relaxed">
+            <strong>Why did other devices not see the database?</strong> When you save credentials in the Admin screen, your browser stores them in local device memory. For other phones, computers, and customers to connect directly on Netlify (<code>https://grfurniturelahore.netlify.app/</code>), add these 2 environment variables in Netlify:
+          </p>
+
+          <ol className="text-xs text-[#5E554C] space-y-1.5 list-decimal list-inside bg-white p-3.5 rounded-lg border border-[#DDD5CA] font-medium">
+            <li>Go to your <strong>Netlify Dashboard</strong> &rarr; Click your site (<code>grfurniturelahore</code>).</li>
+            <li>Click <strong>Site configuration</strong> &rarr; <strong>Environment variables</strong> &rarr; <strong>Add a variable</strong>.</li>
+            <li>Add Key: <code className="text-[#936B3B] font-bold bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#DDD5CA]">VITE_SUPABASE_URL</code> with Value: <code className="font-mono text-xs">{supabaseUrlInput || 'https://cprgtuyfytwfhigofvsj.supabase.co'}</code></li>
+            <li>Add Key: <code className="text-[#936B3B] font-bold bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#DDD5CA]">VITE_SUPABASE_ANON_KEY</code> with your Supabase Public Anon Key.</li>
+            <li>Click <strong>Deploy &rarr; Trigger deploy &rarr; Clear cache and deploy site</strong>.</li>
+          </ol>
+        </div>
+      </div>
+
       {/* Supabase 3-Step Quick Setup Guide */}
       <div className="bg-white rounded-2xl border border-[#E8E1D7] p-6 shadow-2xs space-y-4">
         <div className="flex items-center gap-2">

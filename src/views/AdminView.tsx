@@ -30,6 +30,7 @@ import {
 import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import { DatabaseTab } from '../components/DatabaseTab';
 import { api } from '../services/api';
+import { realtimeStore } from '../services/realtime';
 import { Product, Category, Order, OrderStatus, AdminStats } from '../types';
 import { formatPKR } from '../context/CartContext';
 import { getClientSupabase } from '../services/supabaseClient';
@@ -359,7 +360,20 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
       } catch {}
     }
 
-    // 3. Fast responsive polling fallback (every 6 seconds)
+    // 3. Global Realtime Store Subscription (Sync with storefront mutations and remote devices)
+    const unsubRealtime = realtimeStore.subscribe((event) => {
+      if (event.type === 'products_changed') {
+        api.getProducts().then(setProducts).catch(() => {});
+        api.getStats(token).then(setStats).catch(() => {});
+      } else if (event.type === 'categories_changed') {
+        api.getCategories().then(setCategories).catch(() => {});
+      } else if (event.type === 'orders_changed' || event.type === 'new_order') {
+        api.getOrders(token).then(processIncomingOrders).catch(() => {});
+        api.getStats(token).then(setStats).catch(() => {});
+      }
+    });
+
+    // 4. Fast responsive polling fallback (every 6 seconds)
     const fallbackSync = setInterval(() => {
       api.getOrders(token)
         .then((res) => {
@@ -376,6 +390,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
 
     return () => {
       eventSource.close();
+      unsubRealtime();
       if (supabaseChannel) {
         try {
           sb?.removeChannel(supabaseChannel);

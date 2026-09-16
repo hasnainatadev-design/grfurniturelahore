@@ -1,5 +1,6 @@
 import { Category, Product, Order, AdminStats, OrderStatus } from '../types';
 import { defaultCategories, defaultProducts } from '../data/defaultCatalog';
+import { realtimeStore } from './realtime';
 import {
   getClientSupabase,
   getClientSupabaseConfig,
@@ -29,11 +30,6 @@ function getApiBase(): string {
   const envUrl = ((import.meta as any).env?.VITE_API_URL as string)?.trim();
   if (envUrl && envUrl.length > 0) {
     return envUrl.replace(/\/$/, '');
-  }
-
-  // Automatic connection to your live Velixir backend when hosted on Netlify
-  if (typeof window !== 'undefined' && window.location.hostname.includes('netlify.app')) {
-    return 'https://grfurnitureapi.velixir.run/api';
   }
 
   return '/api';
@@ -134,6 +130,7 @@ export const api = {
       const current = getLocalCategories();
       const updated = [...current.filter(c => c.id !== directResult.id), directResult];
       saveLocalCategories(updated);
+      realtimeStore.broadcast('categories_changed', directResult);
       return directResult;
     }
 
@@ -147,7 +144,11 @@ export const api = {
         },
         body: JSON.stringify(cat),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        realtimeStore.broadcast('categories_changed', data);
+        return data;
+      }
     } catch (err) {
       console.warn('API backend error, saving category locally:', err);
     }
@@ -162,6 +163,7 @@ export const api = {
     const current = getLocalCategories();
     const updated = [...current, newCat];
     saveLocalCategories(updated);
+    realtimeStore.broadcast('categories_changed', newCat);
     return newCat;
   },
 
@@ -174,6 +176,7 @@ export const api = {
       if (idx !== -1) current[idx] = directResult;
       else current.push(directResult);
       saveLocalCategories(current);
+      realtimeStore.broadcast('categories_changed', directResult);
       return directResult;
     }
 
@@ -187,7 +190,11 @@ export const api = {
         },
         body: JSON.stringify(cat),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        realtimeStore.broadcast('categories_changed', data);
+        return data;
+      }
     } catch (err) {
       console.warn('API backend error, updating category locally:', err);
     }
@@ -197,6 +204,7 @@ export const api = {
     if (idx !== -1) {
       current[idx] = { ...current[idx], ...cat };
       saveLocalCategories(current);
+      realtimeStore.broadcast('categories_changed', current[idx]);
       return current[idx];
     }
     throw new Error('Category not found');
@@ -221,6 +229,7 @@ export const api = {
     const current = getLocalCategories();
     const updated = current.filter((c) => c.id !== id);
     saveLocalCategories(updated);
+    realtimeStore.broadcast('categories_changed', { id });
     return true;
   },
 
@@ -296,6 +305,7 @@ export const api = {
       const current = getLocalProducts();
       const updated = [directResult, ...current.filter(p => p.id !== directResult.id)];
       saveLocalProducts(updated);
+      realtimeStore.broadcast('products_changed', directResult);
       return directResult;
     }
 
@@ -309,7 +319,11 @@ export const api = {
         },
         body: JSON.stringify(product),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        realtimeStore.broadcast('products_changed', data);
+        return data;
+      }
     } catch (err) {
       console.warn('API backend error, saving product locally:', err);
     }
@@ -336,6 +350,7 @@ export const api = {
     const current = getLocalProducts();
     const updated = [newProd, ...current];
     saveLocalProducts(updated);
+    realtimeStore.broadcast('products_changed', newProd);
     return newProd;
   },
 
@@ -348,6 +363,7 @@ export const api = {
       if (idx !== -1) current[idx] = directResult;
       else current.unshift(directResult);
       saveLocalProducts(current);
+      realtimeStore.broadcast('products_changed', directResult);
       return directResult;
     }
 
@@ -361,7 +377,11 @@ export const api = {
         },
         body: JSON.stringify(product),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        realtimeStore.broadcast('products_changed', data);
+        return data;
+      }
     } catch (err) {
       console.warn('API backend error, updating product locally:', err);
     }
@@ -371,6 +391,7 @@ export const api = {
     if (idx !== -1) {
       current[idx] = { ...current[idx], ...product };
       saveLocalProducts(current);
+      realtimeStore.broadcast('products_changed', current[idx]);
       return current[idx];
     }
     throw new Error('Product not found');
@@ -397,6 +418,7 @@ export const api = {
     const current = getLocalProducts();
     const updated = current.filter((p) => p.id !== id);
     saveLocalProducts(updated);
+    realtimeStore.broadcast('products_changed', { id });
     return true;
   },
 
@@ -422,6 +444,8 @@ export const api = {
     if (directResult) {
       const currentOrders = getLocalOrders();
       saveLocalOrders([directResult, ...currentOrders]);
+      realtimeStore.broadcast('new_order', directResult);
+      realtimeStore.broadcast('orders_changed', directResult);
       return directResult;
     }
 
@@ -432,7 +456,12 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const saved = await res.json();
+        realtimeStore.broadcast('new_order', saved);
+        realtimeStore.broadcast('orders_changed', saved);
+        return saved;
+      }
     } catch (err) {
       console.warn('API backend error, recording order locally:', err);
     }
@@ -453,6 +482,8 @@ export const api = {
     };
     const currentOrders = getLocalOrders();
     saveLocalOrders([newOrder, ...currentOrders]);
+    realtimeStore.broadcast('new_order', newOrder);
+    realtimeStore.broadcast('orders_changed', newOrder);
     return newOrder;
   },
 
@@ -485,6 +516,7 @@ export const api = {
       if (idx !== -1) orders[idx] = directResult;
       else orders.unshift(directResult);
       saveLocalOrders(orders);
+      realtimeStore.broadcast('orders_changed', directResult);
       return directResult;
     }
 
@@ -498,7 +530,11 @@ export const api = {
         },
         body: JSON.stringify({ status }),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const saved = await res.json();
+        realtimeStore.broadcast('orders_changed', saved);
+        return saved;
+      }
     } catch {}
 
     const orders = getLocalOrders();
@@ -506,6 +542,7 @@ export const api = {
     if (idx !== -1) {
       orders[idx].status = status;
       saveLocalOrders(orders);
+      realtimeStore.broadcast('orders_changed', orders[idx]);
       return orders[idx];
     }
     throw new Error('Order not found');
@@ -530,6 +567,7 @@ export const api = {
     const orders = getLocalOrders();
     const updated = orders.filter((o) => o.id !== id);
     saveLocalOrders(updated);
+    realtimeStore.broadcast('orders_changed', { id });
     return true;
   },
 

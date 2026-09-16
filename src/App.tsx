@@ -12,6 +12,7 @@ import { CheckoutModal } from './views/CheckoutModal';
 import { AdminView } from './views/AdminView';
 import { CartProvider, useCart } from './context/CartContext';
 import { api } from './services/api';
+import { realtimeStore } from './services/realtime';
 import { Product, Category, Order } from './types';
 import {
   getHomeSEO,
@@ -132,7 +133,38 @@ function AppContent() {
     };
 
     window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+
+    // Subscribe to realtime catalog updates (Supabase Realtime + Cross-Tab BroadcastChannel + Polling)
+    const unsubscribe = realtimeStore.subscribe(async (event) => {
+      if (event.type === 'products_changed') {
+        try {
+          const freshProducts = await api.getProducts();
+          setProducts(freshProducts);
+          // If a product is currently viewed, update its reference if it changed
+          setSelectedProduct((currentSelected) => {
+            if (!currentSelected) return null;
+            const updatedMatch = freshProducts.find(
+              (p) => p.id === currentSelected.id || (p.slug && p.slug === currentSelected.slug)
+            );
+            return updatedMatch || currentSelected;
+          });
+        } catch (err) {
+          console.warn('Realtime products refresh error:', err);
+        }
+      } else if (event.type === 'categories_changed') {
+        try {
+          const freshCategories = await api.getCategories();
+          setCategories(freshCategories);
+        } catch (err) {
+          console.warn('Realtime categories refresh error:', err);
+        }
+      }
+    });
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      unsubscribe();
+    };
   }, []);
 
   // Dynamic SEO Metadata computation

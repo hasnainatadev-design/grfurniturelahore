@@ -743,21 +743,59 @@ export async function directGetOrders(): Promise<Order[] | null> {
   try {
     const { data, error } = await sb.from('orders').select('*').order('created_at', { ascending: false });
     if (error || !data || data.length === 0) return null;
-    return data.map((o: any) => ({
-      id: String(o.id || o.order_number),
-      orderNumber: o.order_number || o.id,
-      customerName: o.customer_name || 'Customer',
-      phone: o.phone || '',
-      whatsappNumber: o.whatsapp_number || o.phone || '',
-      address: o.address || '',
-      city: o.city || 'Lahore',
-      notes: o.notes || '',
-      items: Array.isArray(o.items) ? o.items : [],
-      totalAmount: Number(o.total_amount) || 0,
-      status: o.status || 'New',
-      createdAt: o.created_at || new Date().toISOString(),
-    }));
-  } catch {
+
+    // Collect order IDs that might need items fetched from order_items table
+    const ordersNeedingItems = data.filter((o: any) => !Array.isArray(o.items) || o.items.length === 0);
+    let orderItemsMap: Record<string, any[]> = {};
+
+    if (ordersNeedingItems.length > 0) {
+      try {
+        const orderIds = ordersNeedingItems.map((o: any) => o.id || o.order_number);
+        const { data: itemsData } = await sb
+          .from('order_items')
+          .select('*')
+          .in('order_id', orderIds);
+
+        if (Array.isArray(itemsData) && itemsData.length > 0) {
+          itemsData.forEach((item: any) => {
+            const orderId = item.order_id;
+            if (!orderItemsMap[orderId]) orderItemsMap[orderId] = [];
+            orderItemsMap[orderId].push({
+              productId: item.product_id || item.productId || 'item',
+              productName: item.product_name || item.productName || item.name || 'Furniture Item',
+              price: Number(item.price) || 0,
+              quantity: Number(item.quantity) || 1,
+              image: item.image || item.image_url || '',
+            });
+          });
+        }
+      } catch {}
+    }
+
+    return data.map((o: any) => {
+      const orderId = String(o.id || o.order_number);
+      let items = Array.isArray(o.items) ? o.items : [];
+      if (items.length === 0 && orderItemsMap[orderId]) {
+        items = orderItemsMap[orderId];
+      }
+
+      return {
+        id: orderId,
+        orderNumber: o.order_number || o.orderNumber || o.id,
+        customerName: o.customer_name || o.customerName || 'Customer',
+        phone: o.phone || '',
+        whatsappNumber: o.whatsapp_number || o.whatsappNumber || o.phone || '',
+        address: o.address || '',
+        city: o.city || 'Lahore',
+        notes: o.notes || '',
+        items,
+        totalAmount: Number(o.total_amount || o.totalAmount) || 0,
+        status: o.status || 'New',
+        createdAt: o.created_at || o.createdAt || new Date().toISOString(),
+      };
+    });
+  } catch (err) {
+    console.warn('Error fetching orders from Supabase:', err);
     return null;
   }
 }
@@ -773,11 +811,25 @@ export async function directCreateOrder(orderData: {
   totalAmount: number;
 }): Promise<Order | null> {
   const sb = getClientSupabase();
-  if (!sb) return null;
+  if (!sb) {
+    console.warn('directCreateOrder: Supabase client is null or missing credentials.');
+    return null;
+  }
 
-  const id = `ord-${Date.now()}`;
+  const id = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   const orderNumber = `GR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const payload = {
+  
+  // Format clean items
+  const cleanItems = (orderData.items || []).map((item) => ({
+    productId: item.productId || item.id || '',
+    productName: item.productName || item.name || 'Furniture Item',
+    price: Number(item.price) || 0,
+    quantity: Number(item.quantity) || 1,
+    image: item.image || '',
+  }));
+
+  // Standard payload with JSONB items
+  let payload: Record<string, any> = {
     id,
     order_number: orderNumber,
     customer_name: orderData.customerName,
@@ -786,30 +838,97 @@ export async function directCreateOrder(orderData: {
     address: orderData.address,
     city: orderData.city,
     notes: orderData.notes || null,
-    items: orderData.items || [],
+    items: cleanItems,
     total_amount: orderData.totalAmount,
     status: 'New',
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 
   try {
-    const { data, error } = await sb.from('orders').insert(payload).select().single();
-    if (error || !data) return null;
+    let orderRow: any = null;
+    let currentPayload = { ...payload };
+
+    // Attempt 1: Full payload insert
+    let { data, error } = await sb.from('orders').insert(currentPayload).select().single();
+
+    // Attempt 2: If error mentions 'items' or schema cache mismatch
+    if (error && (error.message?.includes('items') || error.code === 'PGRST204' || error.code === '42703')) {
+      delete currentPayload.items;
+      const retry1 = await sb.from('orders').insert(currentPayload).select().single();
+      data = retry1.data;
+      error = retry1.error;
+    }
+
+    // Attempt 3: If error mentions 'whatsapp_number'
+    if (error && (error.message?.includes('whatsapp_number') || error.code === 'PGRST204' || error.code === '42703')) {
+      delete currentPayload.whatsapp_number;
+      const retry2 = await sb.from('orders').insert(currentPayload).select().single();
+      data = retry2.data;
+      error = retry2.error;
+    }
+
+    // Attempt 4: Minimal core columns fallback if table schema is strict
+    if (error) {
+      const minimalPayload: Record<string, any> = {
+        id,
+        order_number: orderNumber,
+        customer_name: orderData.customerName,
+        phone: orderData.phone,
+        address: orderData.address,
+        city: orderData.city,
+        total_amount: orderData.totalAmount,
+        status: 'New',
+        created_at: new Date().toISOString(),
+      };
+      if (orderData.notes) minimalPayload.notes = orderData.notes;
+      const retryMin = await sb.from('orders').insert(minimalPayload).select().single();
+      data = retryMin.data;
+      error = retryMin.error;
+    }
+
+    if (error) {
+      console.error('Supabase directCreateOrder error:', error.message, error.details, error.code);
+      return null;
+    }
+
+    orderRow = data;
+
+    // Also attempt to insert breakdown into order_items table if it exists
+    if (cleanItems.length > 0) {
+      try {
+        const orderItemRows = cleanItems.map((item, idx) => ({
+          id: `item-${id}-${idx + 1}`,
+          order_id: id,
+          product_id: item.productId || null,
+          product_name: item.productName,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image || null,
+        }));
+        await sb.from('order_items').insert(orderItemRows);
+      } catch (itemErr) {
+        // order_items table is optional if items json is saved
+        console.warn('Could not insert to order_items table (optional):', itemErr);
+      }
+    }
+
     return {
-      id: data.id,
-      orderNumber: data.order_number,
-      customerName: data.customer_name,
-      phone: data.phone,
-      whatsappNumber: data.whatsapp_number,
-      address: data.address,
-      city: data.city,
-      notes: data.notes,
-      items: data.items || [],
-      totalAmount: Number(data.total_amount),
-      status: data.status,
-      createdAt: data.created_at,
+      id: orderRow.id || id,
+      orderNumber: orderRow.order_number || orderNumber,
+      customerName: orderRow.customer_name || orderData.customerName,
+      phone: orderRow.phone || orderData.phone,
+      whatsappNumber: orderRow.whatsapp_number || orderData.whatsappNumber || orderData.phone,
+      address: orderRow.address || orderData.address,
+      city: orderRow.city || orderData.city,
+      notes: orderRow.notes || orderData.notes,
+      items: cleanItems,
+      totalAmount: Number(orderRow.total_amount) || orderData.totalAmount,
+      status: (orderRow.status as OrderStatus) || 'New',
+      createdAt: orderRow.created_at || payload.created_at,
     };
-  } catch {
+  } catch (err: any) {
+    console.error('Exception in directCreateOrder:', err);
     return null;
   }
 }
@@ -830,7 +949,7 @@ export async function directUpdateOrderStatus(id: string, status: OrderStatus): 
       address: data.address,
       city: data.city,
       notes: data.notes,
-      items: data.items || [],
+      items: Array.isArray(data.items) ? data.items : [],
       totalAmount: Number(data.total_amount),
       status: data.status,
       createdAt: data.created_at,
