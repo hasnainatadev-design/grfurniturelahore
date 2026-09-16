@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <!-- Core Static Pages -->
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/shop</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/about</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/contact</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/custom-order</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Categories -->
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/category/beds</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&amp;fit=crop&amp;w=1200&amp;q=80</image:loc>
+      <image:title>Beds and Bedroom Sets in Lahore - GR Furniture</image:title>
+      <image:caption>Royal master beds, upholstered tufted headboards, and solid Sheesham wood bed sets.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/category/sofas</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&amp;fit=crop&amp;w=1200&amp;q=80</image:loc>
+      <image:title>Luxury Sofas and Living Room Sets Lahore - GR Furniture</image:title>
+      <image:caption>Handcrafted luxury velvet sofas, L-shape sectionals, and classic Chesterfield sets.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/category/dining-tables</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&amp;fit=crop&amp;w=1200&amp;q=80</image:loc>
+      <image:title>Dining Tables and Suites in Lahore - GR Furniture</image:title>
+      <image:caption>6-seater and 8-seater dining tables in solid wood and marble top finishes.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/category/wardrobes</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&amp;fit=crop&amp;w=1200&amp;q=80</image:loc>
+      <image:title>Wardrobes and Closets in Lahore - GR Furniture</image:title>
+      <image:caption>Spacious sliding and hinged wardrobes crafted with moisture-resistant Turkish hardware.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/category/dressing-tables</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&amp;fit=crop&amp;w=1200&amp;q=80</image:loc>
+      <image:title>Vanity Dressing Tables in Lahore - GR Furniture</image:title>
+      <image:caption>Modern vanity dressing tables with LED touch mirrors, cushioned stools, and gold trims.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/category/chairs</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&amp;fit=crop&amp;w=1200&amp;q=80</image:loc>
+      <image:title>Chairs and Armchairs in Lahore - GR Furniture</image:title>
+      <image:caption>Ergonomic dining chairs, accent armchairs, and luxury velvet statement seating.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/category/tables</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1532323544230-7191fd51bc1b?auto=format&amp;fit=crop&amp;w=1200&amp;q=80</image:loc>
+      <image:title>Coffee and Center Tables in Lahore - GR Furniture</image:title>
+      <image:caption>Designer coffee tables, nest of tables, and console tables for elegant hallways.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/category/other-furniture</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1540518614846-7ede433c4ef0?auto=format&amp;fit=crop&amp;w=1200&amp;q=80</image:loc>
+      <image:title>Custom and Living Furniture in Lahore - GR Furniture</image:title>
+      <image:caption>TV units, shoe racks, bookshelves, and bespoke custom furniture solutions.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Products -->
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/furniture/royal-venetian-master-bed-set</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>The Royal Venetian Master Bed Set - GR Furniture Lahore</image:title>
+      <image:caption>Hand-carved in premium seasoned Sheesham wood with high-density velvet tufting and brass foot accents.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/furniture/milanese-emerald-velvet-7-seater-living-room-suite</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Milanese Emerald Velvet 7-Seater Living Room Suite - GR Furniture Lahore</image:title>
+      <image:caption>Wrapped in imported moss emerald velvet with high-resilience Master MoltyFoam filling and brushed brass legs.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/furniture/imperial-8-seater-onyx-marble-dining-suite</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Imperial 8-Seater Onyx Marble Dining Suite - GR Furniture Lahore</image:title>
+      <image:caption>Natural white-veined onyx marble top resting on a fluted pedestal base with 8 high-back chairs in boucle fabric.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/furniture/nordic-6-door-sliding-wardrobe-glass-accents</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Nordic 6-Door Sliding Wardrobe with Glass Accents - GR Furniture Lahore</image:title>
+      <image:caption>Smooth whisper-quiet sliding tracks, automatic motion-sensor LED clothing rails, and fluted glass doors.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/furniture/lumiere-led-hollywood-dressing-table-stool-set</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Lumiere LED Hollywood Dressing Table and Stool Set - GR Furniture Lahore</image:title>
+      <image:caption>Smart touch 3-color LED mirror, soft-close velvet organizers, and matching cylindrical ottoman stool.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/furniture/heritage-wingback-lounge-reading-armchair</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>The Heritage Wingback Lounge Reading Armchair - GR Furniture Lahore</image:title>
+      <image:caption>Deep button diamond tufting, flared scroll arms, and dark walnut hand-turned wooden legs with brass castors.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/furniture/aura-dual-marble-fluted-oak-nesting-coffee-tables</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1532323544230-7191fd51bc1b?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Aura Dual Marble and Fluted Oak Nesting Coffee Tables - GR Furniture Lahore</image:title>
+      <image:caption>Black Marquina polished marble slab and fluted oak wooden cylinder with concealed internal rotating storage.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://grfurniturelahore.netlify.app/furniture/grand-slotted-oak-media-console-wall-unit</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1540518614846-7ede433c4ef0?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Grand Slotted Oak Media Console and Wall Unit - GR Furniture Lahore</image:title>
+      <image:caption>Solid vertical fluted oak slats, soft-drop hydraulic doors, and concealed cable organizing raceways.</image:caption>
+    </image:image>
+  </url>
+</urlset>

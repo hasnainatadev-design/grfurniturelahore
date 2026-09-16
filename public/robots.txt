@@ -1,0 +1,19 @@
+# Robots.txt for GR Furniture Lahore
+User-agent: *
+Allow: /
+Allow: /furniture/
+Allow: /category/
+Allow: /shop
+Allow: /about
+Allow: /contact
+Allow: /custom-order
+Allow: /uploads/
+Allow: /assets/
+Allow: /sitemap.xml
+
+# Disallow private admin and API paths
+Disallow: /admin
+Disallow: /api/
+
+# Sitemap Location
+Sitemap: https://grfurniturelahore.netlify.app/sitemap.xml

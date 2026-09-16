@@ -19,6 +19,12 @@
     <meta name="geo.position" content="31.4647;74.3644" />
     <meta name="ICBM" content="31.4647, 74.3644" />
     
+    <!-- Canonical URL & Hreflang -->
+    <link rel="canonical" href="https://grfurniturelahore.netlify.app/" />
+    <link rel="alternate" hreflang="en-PK" href="https://grfurniturelahore.netlify.app/" />
+    <link rel="alternate" hreflang="ur-PK" href="https://grfurniturelahore.netlify.app/" />
+    <link rel="alternate" hreflang="x-default" href="https://grfurniturelahore.netlify.app/" />
+
     <!-- Application / Theme Colors -->
     <meta name="application-name" content="GR Furniture Lahore" />
     <meta name="apple-mobile-web-app-title" content="GR Furniture" />
@@ -26,13 +32,15 @@
     <meta name="theme-color" content="#1E1712" />
     <meta name="msapplication-TileColor" content="#1E1712" />
     <meta name="msapplication-TileImage" content="/icon-192.png" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
 
     <!-- Open Graph / Facebook / WhatsApp Preview -->
     <meta property="og:site_name" content="GR Furniture Lahore" />
     <meta property="og:title" content="GR Furniture Lahore | Wholesale Dealer & Luxury Handcrafted Furniture" />
     <meta property="og:description" content="Direct factory pricing on solid wood beds, velvet sofas, dining suites, and bespoke luxury furniture in Lahore. Call/WhatsApp 0344 6784419." />
-    <meta property="og:image" content="/logo.jpg" />
-    <meta property="og:image:secure_url" content="/logo.jpg" />
+    <meta property="og:url" content="https://grfurniturelahore.netlify.app/" />
+    <meta property="og:image" content="https://grfurniturelahore.netlify.app/logo.jpg" />
+    <meta property="og:image:secure_url" content="https://grfurniturelahore.netlify.app/logo.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1000" />
     <meta property="og:image:height" content="1000" />
@@ -44,7 +52,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="GR Furniture Lahore | Wholesale Dealer & Luxury Handcrafted Furniture" />
     <meta name="twitter:description" content="Direct factory pricing on solid wood beds, velvet sofas, dining suites, and bespoke luxury furniture in Lahore." />
-    <meta name="twitter:image" content="/logo.jpg" />
+    <meta name="twitter:image" content="https://grfurniturelahore.netlify.app/logo.jpg" />
     <meta name="twitter:image:alt" content="GR Furniture Lahore Official Logo" />
 
     <!-- Favicons, Touch Icons & Google Search Engine Icons -->
@@ -57,14 +65,14 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- Google Search Central Structured Data (JSON-LD) for Site Name & Logo -->
+    <!-- Google Search Central Structured Data (JSON-LD) for Site Name, Logo & Search Action -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@graph": [
         {
           "@type": "WebSite",
-          "@id": "https://grfurniturelahore.ai.studio/#website",
+          "@id": "https://grfurniturelahore.netlify.app/#website",
           "name": "GR Furniture Lahore",
           "alternateName": [
             "GR Furniture",
@@ -72,15 +80,20 @@
             "GR Furniture Lahore Wholesale Dealer",
             "جی آر فرنیچر لاہور"
           ],
-          "url": "https://grfurniturelahore.ai.studio/",
+          "url": "https://grfurniturelahore.netlify.app/",
           "inLanguage": ["en-PK", "ur-PK"],
           "publisher": {
-            "@id": "https://grfurniturelahore.ai.studio/#organization"
+            "@id": "https://grfurniturelahore.netlify.app/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://grfurniturelahore.netlify.app/shop?q={search_term_string}",
+            "query-input": "required name=search_term_string"
           }
         },
         {
           "@type": "FurnitureStore",
-          "@id": "https://grfurniturelahore.ai.studio/#organization",
+          "@id": "https://grfurniturelahore.netlify.app/#organization",
           "name": "GR Furniture Lahore",
           "alternateName": [
             "GR Furniture",
@@ -89,19 +102,19 @@
             "جی آر فرنیچر لاہور"
           ],
           "description": "Official showroom and woodcraft factory of GR Furniture Lahore. Handcrafted solid Sheesham wood beds, luxury velvet sofas, marble dining tables, and bespoke furniture in Lahore, Pakistan.",
-          "url": "https://grfurniturelahore.ai.studio/",
+          "url": "https://grfurniturelahore.netlify.app/",
           "logo": {
             "@type": "ImageObject",
-            "@id": "https://grfurniturelahore.ai.studio/#logo",
-            "url": "https://grfurniturelahore.ai.studio/logo.png",
-            "contentUrl": "https://grfurniturelahore.ai.studio/logo.png",
+            "@id": "https://grfurniturelahore.netlify.app/#logo",
+            "url": "https://grfurniturelahore.netlify.app/logo.png",
+            "contentUrl": "https://grfurniturelahore.netlify.app/logo.png",
             "caption": "GR Furniture Lahore Official Logo",
             "width": 1000,
             "height": 1000
           },
           "image": [
-            "https://grfurniturelahore.ai.studio/logo.jpg",
-            "https://grfurniturelahore.ai.studio/logo.png"
+            "https://grfurniturelahore.netlify.app/logo.jpg",
+            "https://grfurniturelahore.netlify.app/logo.png"
           ],
           "telephone": "+923446784419",
           "priceRange": "₨₨₨",
@@ -120,6 +133,19 @@
             "latitude": 31.4647,
             "longitude": 74.3644
           },
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+              "opens": "10:00",
+              "closes": "21:00"
+            }
+          ],
+          "areaServed": [
+            { "@type": "City", "name": "Lahore" },
+            { "@type": "AdministrativeArea", "name": "Punjab" },
+            { "@type": "Country", "name": "Pakistan" }
+          ],
           "sameAs": [
             "https://youtube.com/@grfurniturefactory?si=9y-BxOetXKcMSaTe",
             "https://www.facebook.com/p/GR-Furniture-Lahore-100064194690152/",

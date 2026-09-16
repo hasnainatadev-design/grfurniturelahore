@@ -1,0 +1,10 @@
+/* TEAM */
+  Brand: GR Furniture Lahore
+  Location: Chungi Amar Sidhu, Main Ferozepur Road, Lahore, Punjab, Pakistan
+  Contact: +92 344 6784419
+  Website: https://grfurniturelahore.netlify.app
+
+/* SITE */
+  Standards: HTML5, CSS3, Schema.org, OpenGraph, JSON-LD
+  Components: React, Vite, Tailwind CSS
+  Software: Handcrafted Furniture Showcase & Online Catalog
