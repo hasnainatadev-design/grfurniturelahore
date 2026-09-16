@@ -1453,6 +1453,44 @@ function ProductFormModal({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const compressImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1200;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target?.result as string);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(compressedBase64);
+        };
+        img.onerror = () => resolve(event.target?.result as string);
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1460,24 +1498,25 @@ function ProductFormModal({
     setUploadingImage(true);
     setFormError(null);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        try {
-          const uploadedUrl = await api.uploadImage(base64, token);
-          setImages((prev) => [...prev, uploadedUrl]);
-          setImageLabels((prev) => [...prev, newImageLabel.trim() || `Angle / Piece ${prev.length + 1}`]);
-          setNewImageLabel('');
-        } catch {
-          // If server upload fails, fallback to local base64 data url directly
-          setImages((prev) => [...prev, base64]);
-          setImageLabels((prev) => [...prev, newImageLabel.trim() || `Angle / Piece ${prev.length + 1}`]);
-          setNewImageLabel('');
-        } finally {
-          setUploadingImage(false);
-        }
-      };
-      reader.readAsDataURL(file);
+      const base64 = await compressImageFile(file);
+      if (!base64) {
+        setFormError('Failed to process selected image file');
+        setUploadingImage(false);
+        return;
+      }
+      try {
+        const uploadedUrl = await api.uploadImage(base64, token);
+        setImages((prev) => [...prev, uploadedUrl || base64]);
+        setImageLabels((prev) => [...prev, newImageLabel.trim() || `Angle / Piece ${prev.length + 1}`]);
+        setNewImageLabel('');
+      } catch {
+        // Fallback to compressed base64 directly
+        setImages((prev) => [...prev, base64]);
+        setImageLabels((prev) => [...prev, newImageLabel.trim() || `Angle / Piece ${prev.length + 1}`]);
+        setNewImageLabel('');
+      } finally {
+        setUploadingImage(false);
+      }
     } catch {
       setUploadingImage(false);
       setFormError('Failed to read selected image file');

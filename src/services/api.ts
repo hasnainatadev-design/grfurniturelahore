@@ -5,7 +5,19 @@ import {
   getClientSupabaseConfig,
   testDirectSupabaseConnection,
   syncDirectToSupabase,
-  fetchDirectFromSupabase,
+  directPullFromSupabase,
+  directGetCategories,
+  directUpsertCategory,
+  directDeleteCategory,
+  directGetProducts,
+  directGetProductById,
+  directUpsertProduct,
+  directDeleteProduct,
+  directGetOrders,
+  directCreateOrder,
+  directUpdateOrderStatus,
+  directDeleteOrder,
+  directUploadImage,
 } from './supabaseClient';
 
 function getApiBase(): string {
@@ -21,7 +33,7 @@ function getApiBase(): string {
 
   // Automatic connection to your live Velixir backend when hosted on Netlify
   if (typeof window !== 'undefined' && window.location.hostname.includes('netlify.app')) {
-    return 'https://grfurnitureapi.velixir.run';
+    return 'https://grfurnitureapi.velixir.run/api';
   }
 
   return '/api';
@@ -79,6 +91,14 @@ function saveLocalOrders(orders: Order[]) {
 export const api = {
   // Categories
   async getCategories(): Promise<Category[]> {
+    // 1. Try Direct Supabase if configured
+    const directCats = await directGetCategories();
+    if (directCats && directCats.length > 0) {
+      saveLocalCategories(directCats);
+      return directCats;
+    }
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/categories`);
       if (res.ok) {
@@ -91,10 +111,21 @@ export const api = {
     } catch (err) {
       console.warn('Backend /api/categories unavailable, using local catalog data:', err);
     }
+
     return getLocalCategories();
   },
 
   async createCategory(cat: Partial<Category>, token?: string): Promise<Category> {
+    // 1. Direct Supabase
+    const directResult = await directUpsertCategory(cat);
+    if (directResult) {
+      const current = getLocalCategories();
+      const updated = [...current.filter(c => c.id !== directResult.id), directResult];
+      saveLocalCategories(updated);
+      return directResult;
+    }
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/categories`, {
         method: 'POST',
@@ -123,6 +154,18 @@ export const api = {
   },
 
   async updateCategory(id: string, cat: Partial<Category>, token?: string): Promise<Category> {
+    // 1. Direct Supabase
+    const directResult = await directUpsertCategory({ ...cat, id });
+    if (directResult) {
+      const current = getLocalCategories();
+      const idx = current.findIndex((c) => c.id === id);
+      if (idx !== -1) current[idx] = directResult;
+      else current.push(directResult);
+      saveLocalCategories(current);
+      return directResult;
+    }
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/categories/${id}`, {
         method: 'PUT',
@@ -148,19 +191,20 @@ export const api = {
   },
 
   async deleteCategory(id: string, token?: string): Promise<boolean> {
+    // 1. Direct Supabase
+    await directDeleteCategory(id);
+
+    // 2. Try Backend API
     try {
       const activeToken = token || localStorage.getItem('grf_admin_token') || 'grf-session-token-valid';
-      const res = await fetch(`${API_BASE}/categories/${id}`, {
+      await fetch(`${API_BASE}/categories/${id}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${activeToken}`,
           'x-admin-token': activeToken,
         },
       });
-      if (res.ok) return true;
-    } catch (err) {
-      console.warn('API backend error, deleting category locally:', err);
-    }
+    } catch {}
 
     const current = getLocalCategories();
     const updated = current.filter((c) => c.id !== id);
@@ -175,6 +219,14 @@ export const api = {
     featured?: boolean;
     sort?: string;
   }): Promise<Product[]> {
+    // 1. Try Direct Supabase if configured
+    const directProds = await directGetProducts(params);
+    if (directProds && directProds.length > 0) {
+      saveLocalProducts(directProds);
+      return directProds;
+    }
+
+    // 2. Try Backend API
     try {
       const query = new URLSearchParams();
       if (params?.category && params.category !== 'all') query.append('category', params.category);
@@ -209,6 +261,11 @@ export const api = {
   },
 
   async getProductById(id: string): Promise<Product> {
+    // 1. Try Direct Supabase
+    const directProd = await directGetProductById(id);
+    if (directProd) return directProd;
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/products/${id}`);
       if (res.ok) return await res.json();
@@ -221,6 +278,16 @@ export const api = {
   },
 
   async createProduct(product: Partial<Product>, token?: string): Promise<Product> {
+    // 1. Direct Supabase
+    const directResult = await directUpsertProduct(product);
+    if (directResult) {
+      const current = getLocalProducts();
+      const updated = [directResult, ...current.filter(p => p.id !== directResult.id)];
+      saveLocalProducts(updated);
+      return directResult;
+    }
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/products`, {
         method: 'POST',
@@ -261,6 +328,18 @@ export const api = {
   },
 
   async updateProduct(id: string, product: Partial<Product>, token?: string): Promise<Product> {
+    // 1. Direct Supabase
+    const directResult = await directUpsertProduct({ ...product, id });
+    if (directResult) {
+      const current = getLocalProducts();
+      const idx = current.findIndex((p) => p.id === id);
+      if (idx !== -1) current[idx] = directResult;
+      else current.unshift(directResult);
+      saveLocalProducts(current);
+      return directResult;
+    }
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/products/${id}`, {
         method: 'PUT',
@@ -286,16 +365,19 @@ export const api = {
   },
 
   async deleteProduct(id: string, token?: string): Promise<boolean> {
+    // 1. Direct Supabase
+    await directDeleteProduct(id);
+
+    // 2. Try Backend API
     try {
       const activeToken = token || localStorage.getItem('grf_admin_token') || 'grf-session-token-valid';
-      const res = await fetch(`${API_BASE}/products/${id}`, {
+      await fetch(`${API_BASE}/products/${id}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${activeToken}`,
           'x-admin-token': activeToken,
         },
       });
-      if (res.ok) return true;
     } catch (err) {
       console.warn('API backend error, deleting product locally:', err);
     }
@@ -323,6 +405,15 @@ export const api = {
     }[];
     totalAmount: number;
   }): Promise<Order> {
+    // 1. Direct Supabase
+    const directResult = await directCreateOrder(orderData);
+    if (directResult) {
+      const currentOrders = getLocalOrders();
+      saveLocalOrders([directResult, ...currentOrders]);
+      return directResult;
+    }
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/orders`, {
         method: 'POST',
@@ -354,6 +445,14 @@ export const api = {
   },
 
   async getOrders(token?: string): Promise<Order[]> {
+    // 1. Direct Supabase
+    const directOrders = await directGetOrders();
+    if (directOrders) {
+      saveLocalOrders(directOrders);
+      return directOrders;
+    }
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/orders`, {
         headers: {
@@ -366,6 +465,18 @@ export const api = {
   },
 
   async updateOrderStatus(id: string, status: OrderStatus, token?: string): Promise<Order> {
+    // 1. Direct Supabase
+    const directResult = await directUpdateOrderStatus(id, status);
+    if (directResult) {
+      const orders = getLocalOrders();
+      const idx = orders.findIndex((o) => o.id === id);
+      if (idx !== -1) orders[idx] = directResult;
+      else orders.unshift(directResult);
+      saveLocalOrders(orders);
+      return directResult;
+    }
+
+    // 2. Try Backend API
     try {
       const res = await fetch(`${API_BASE}/orders/${id}/status`, {
         method: 'PATCH',
@@ -389,16 +500,19 @@ export const api = {
   },
 
   async deleteOrder(id: string, token?: string): Promise<boolean> {
+    // 1. Direct Supabase
+    await directDeleteOrder(id);
+
+    // 2. Try Backend API
     try {
       const activeToken = token || localStorage.getItem('grf_admin_token') || 'grf-session-token-valid';
-      const res = await fetch(`${API_BASE}/orders/${id}`, {
+      await fetch(`${API_BASE}/orders/${id}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${activeToken}`,
           'x-admin-token': activeToken,
         },
       });
-      if (res.ok) return true;
     } catch {}
 
     const orders = getLocalOrders();
@@ -409,17 +523,8 @@ export const api = {
 
   // Stats
   async getStats(token?: string): Promise<AdminStats> {
-    try {
-      const res = await fetch(`${API_BASE}/stats`, {
-        headers: {
-          Authorization: `Bearer ${token || localStorage.getItem('grf_admin_token') || ''}`,
-        },
-      });
-      if (res.ok) return await res.json();
-    } catch {}
-
-    const orders = getLocalOrders();
-    const products = getLocalProducts();
+    const orders = await this.getOrders(token);
+    const products = await this.getProducts();
     const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
     return {
       totalProducts: products.length,
@@ -434,6 +539,11 @@ export const api = {
 
   // Upload image
   async uploadImage(base64: string, token?: string): Promise<string> {
+    // 1. Direct Supabase Storage
+    const directUrl = await directUploadImage(base64);
+    if (directUrl) return directUrl;
+
+    // 2. Backend API
     try {
       const res = await fetch(`${API_BASE}/upload`, {
         method: 'POST',
@@ -448,7 +558,6 @@ export const api = {
         return data.url;
       }
     } catch {}
-    // Fallback directly returns the data URL so the image still shows locally
     return base64;
   },
 
@@ -462,24 +571,19 @@ export const api = {
     supabaseUrl: string;
     schemaFile: string;
   }> {
-    try {
-      const res = await fetch(`${API_BASE}/database/status`, {
-        headers: {
-          Authorization: `Bearer ${token || localStorage.getItem('grf_admin_token') || ''}`,
-        },
-      });
-      if (res.ok) return await res.json();
-    } catch {}
-
     const clientCfg = getClientSupabaseConfig();
     const hasClientConfig = Boolean(clientCfg.url && clientCfg.key);
+
+    const prods = await this.getProducts();
+    const cats = await this.getCategories();
+    const ords = await this.getOrders(token);
 
     return {
       supabaseConfigured: hasClientConfig,
       databaseProvider: hasClientConfig ? 'Supabase (Direct Client)' : 'Local Storage / Static Dataset',
-      totalProducts: getLocalProducts().length,
-      totalCategories: getLocalCategories().length,
-      totalOrders: getLocalOrders().length,
+      totalProducts: prods.length,
+      totalCategories: cats.length,
+      totalOrders: ords.length,
       supabaseUrl: clientCfg.url || '',
       schemaFile: 'data/supabase-schema.sql',
     };
@@ -498,7 +602,25 @@ export const api = {
     error?: string;
     details?: string;
   }> {
-    // 1. Try testing via backend API endpoint
+    // 1. Direct browser test via Supabase client
+    const directRes = await testDirectSupabaseConnection();
+    if (directRes.connected) {
+      return {
+        configured: Boolean(directRes.url && directRes.hasKey),
+        connected: directRes.connected,
+        url: directRes.url,
+        hasKey: directRes.hasKey,
+        keyType: directRes.hasKey ? 'Direct Client Key' : 'None',
+        categoriesTableOk: directRes.categoriesTableOk,
+        productsTableOk: directRes.productsTableOk,
+        ordersTableOk: directRes.ordersTableOk,
+        storageOk: directRes.connected,
+        error: directRes.error,
+        details: directRes.details,
+      };
+    }
+
+    // 2. Try testing via backend API endpoint if direct fails
     try {
       const res = await fetch(`${API_BASE}/database/test`, {
         headers: {
@@ -508,8 +630,6 @@ export const api = {
       if (res.ok) return await res.json();
     } catch {}
 
-    // 2. Direct browser test via Supabase client
-    const directRes = await testDirectSupabaseConnection();
     return {
       configured: Boolean(directRes.url && directRes.hasKey),
       connected: directRes.connected,
@@ -526,20 +646,6 @@ export const api = {
   },
 
   async syncToSupabase(token?: string): Promise<{ success: boolean; message: string; synced: any }> {
-    // 1. Try server sync first
-    try {
-      const res = await fetch(`${API_BASE}/database/sync`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token || localStorage.getItem('grf_admin_token') || ''}`,
-        },
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {}
-
-    // 2. Fallback to direct client sync
     const categories = getLocalCategories();
     const products = getLocalProducts();
     const orders = getLocalOrders();
@@ -552,31 +658,72 @@ export const api = {
     };
   },
 
+  async importFromSupabase(): Promise<{
+    success: boolean;
+    message: string;
+    counts: { categories: number; products: number; orders: number };
+  }> {
+    const data = await directPullFromSupabase();
+    if (data.categories.length > 0) {
+      saveLocalCategories(data.categories);
+    }
+    if (data.products.length > 0) {
+      saveLocalProducts(data.products);
+    }
+    if (data.orders.length > 0) {
+      saveLocalOrders(data.orders);
+    }
+    return {
+      success: true,
+      message: `Loaded ${data.products.length} products, ${data.categories.length} categories, and ${data.orders.length} orders from Supabase!`,
+      counts: {
+        categories: data.categories.length,
+        products: data.products.length,
+        orders: data.orders.length,
+      },
+    };
+  },
+
   // Admin Auth
-  async adminLogin(password: string): Promise<{ success: boolean; token?: string }> {
+  async login(password: string): Promise<{ success: boolean; token: string }> {
     try {
-      const res = await fetch(`${API_BASE}/admin/login`, {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem('grf_admin_token', data.token);
+          return { success: true, token: data.token };
+        }
+      }
     } catch {}
 
     if (password === 'grfurniture2026' || password === 'admin123' || password === 'admin') {
-      return { success: true, token: 'grf-session-token-valid' };
+      const token = 'grf-session-token-valid';
+      localStorage.setItem('grf_admin_token', token);
+      return { success: true, token };
     }
-    return { success: false };
+    throw new Error('Invalid administrative password.');
   },
 
-  async verifyAdmin(token: string): Promise<boolean> {
+  async adminLogin(password: string): Promise<{ success: boolean; token: string }> {
+    return this.login(password);
+  },
+
+  async verifyToken(token: string): Promise<boolean> {
+    if (token === 'grf-session-token-valid') return true;
     try {
-      const res = await fetch(`${API_BASE}/admin/verify`, {
+      const res = await fetch(`${API_BASE}/auth/verify`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) return true;
+      if (res.ok) {
+        const data = await res.json();
+        return data.valid === true;
+      }
     } catch {}
-    return token === 'grf-session-token-valid' || Boolean(localStorage.getItem('grf_admin_token'));
+    return token.length > 5;
   },
 };
-

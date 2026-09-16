@@ -1,7 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Server, CheckCircle2, Copy, Check, ArrowRight, ShieldCheck, AlertCircle, RefreshCw, Key, Link2, ExternalLink } from 'lucide-react';
+import {
+  Database,
+  Server,
+  CheckCircle2,
+  Copy,
+  Check,
+  ShieldCheck,
+  AlertCircle,
+  RefreshCw,
+  Key,
+  Link2,
+  ExternalLink,
+  Download,
+  UploadCloud,
+  Layers,
+} from 'lucide-react';
 import { api } from '../services/api';
-import { getClientSupabaseConfig, saveClientSupabaseConfig, testDirectSupabaseConnection } from '../services/supabaseClient';
+import {
+  getClientSupabaseConfig,
+  saveClientSupabaseConfig,
+  testDirectSupabaseConnection,
+} from '../services/supabaseClient';
 
 interface DatabaseTabProps {
   token: string | null;
@@ -22,6 +41,7 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
 
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [copiedEnv, setCopiedEnv] = useState(false);
   const [diagnostics, setDiagnostics] = useState<{
@@ -77,7 +97,24 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
     try {
       saveClientSupabaseConfig(supabaseUrlInput.trim(), supabaseKeyInput.trim());
       showToast('success', 'Supabase credentials saved in browser!');
-      await handleTestConnection();
+
+      // Run connection test and automatically import live data
+      const diag = await api.testDatabaseConnection(token || undefined);
+      setDiagnostics(diag);
+
+      if (diag.connected) {
+        showToast('success', 'Supabase connected! Fetching your database items...');
+        try {
+          const importRes = await api.importFromSupabase();
+          showToast('success', importRes.message);
+          if (onDataChanged) onDataChanged();
+        } catch (importErr: any) {
+          console.warn('Initial import notice:', importErr);
+        }
+      } else {
+        showToast('error', diag.error || 'Connection test failed.');
+      }
+      await loadStatus();
     } catch (err: any) {
       showToast('error', err.message || 'Failed to save configuration');
     } finally {
@@ -91,7 +128,7 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
       const diag = await api.testDatabaseConnection(token || undefined);
       setDiagnostics(diag);
       if (diag.connected) {
-        showToast('success', 'Supabase connected successfully and all tables are ready!');
+        showToast('success', 'Supabase connected successfully and tables are ready!');
       } else {
         showToast('error', diag.error || 'Connection check failed.');
       }
@@ -100,6 +137,26 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
       showToast('error', err.message || 'Diagnostic test failed.');
     } finally {
       setTestingDiagnostics(false);
+    }
+  };
+
+  const handleImportFromSupabase = async () => {
+    const config = getClientSupabaseConfig();
+    if (!config.key) {
+      showToast('error', 'Please enter and save your Supabase Key first.');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const res = await api.importFromSupabase();
+      showToast('success', res.message);
+      await loadStatus();
+      if (onDataChanged) onDataChanged();
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to pull data from Supabase');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -232,11 +289,21 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
             Database & Cloud Persistence
           </h2>
           <p className="text-xs text-[#82756A] mt-0.5">
-            Manage your Supabase PostgreSQL database, storage bucket, and data synchronization.
+            Manage your Supabase PostgreSQL database, storage bucket, and live catalog synchronization.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={handleImportFromSupabase}
+            disabled={importing}
+            className="px-3.5 py-2 rounded-xl bg-[#231B15] text-white hover:bg-[#6E4D2E] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+            title="Pull all live categories, products, and orders from Supabase into the app"
+          >
+            <Download className={`w-3.5 h-3.5 ${importing ? 'animate-bounce' : ''}`} />
+            <span>{importing ? 'Loading from Supabase...' : 'Fetch Live Supabase Data'}</span>
+          </button>
+
           <button
             onClick={handleTestConnection}
             disabled={testingDiagnostics}
@@ -276,7 +343,7 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <h4 className="font-bold text-sm">
                   {diagnostics.connected
-                    ? 'Supabase Connection Verified'
+                    ? 'Supabase Connection Verified & Live'
                     : 'Supabase Connection Check'}
                 </h4>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-black/5 self-start sm:self-auto">
@@ -419,25 +486,47 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
               <span className="text-[10px] text-[#82756A]">Orders</span>
             </div>
           </div>
-          <div className="pt-1 text-center">
+          <div className="pt-1 flex flex-col gap-1.5">
+            <button
+              onClick={handleImportFromSupabase}
+              disabled={importing || !status?.supabaseConfigured}
+              className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                status?.supabaseConfigured
+                  ? 'bg-[#231B15] text-white hover:bg-[#3E342B] shadow-xs'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {importing ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Loading from Supabase...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Pull / Import from Supabase</span>
+                </>
+              )}
+            </button>
+
             <button
               onClick={handleSyncToSupabase}
               disabled={syncing || !status?.supabaseConfigured}
-              className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`w-full py-1.5 px-3 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 status?.supabaseConfigured
-                  ? 'bg-[#6E4D2E] text-white hover:bg-[#583B20] shadow-xs'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  ? 'bg-white border border-[#E8E1D7] text-[#6E4D2E] hover:bg-[#FAF7F2]'
+                  : 'bg-gray-50 text-gray-300 border border-gray-100 cursor-not-allowed'
               }`}
             >
               {syncing ? (
                 <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Syncing to Supabase...</span>
+                  <div className="w-3.5 h-3.5 border-2 border-[#6E4D2E] border-t-transparent rounded-full animate-spin" />
+                  <span>Uploading to Supabase...</span>
                 </>
               ) : (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Sync All Items to Supabase</span>
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>Push Local Data to Supabase</span>
                 </>
               )}
             </button>
@@ -457,7 +546,7 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
                 Direct Supabase Connection (Instant Browser Sync)
               </h3>
               <p className="text-xs text-[#82756A]">
-                Paste your Supabase credentials here to connect immediately from your browser without restarting servers.
+                Paste your Supabase credentials here to connect immediately and pull your database items directly into the store.
               </p>
             </div>
           </div>
@@ -509,21 +598,32 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <p className="text-[11px] text-[#82756A]">
-            💡 Tip: Use your <strong>service_role</strong> key for full sync privileges or <strong>anon</strong> public key.
+            💡 Tip: Use your <strong>service_role</strong> key or <strong>anon</strong> public key.
           </p>
 
-          <button
-            onClick={handleSaveDirectSupabase}
-            disabled={isSavingConfig}
-            className="px-5 py-2.5 rounded-xl bg-[#6E4D2E] text-white hover:bg-[#583B20] text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
-          >
-            {isSavingConfig ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Check className="w-3.5 h-3.5" />
-            )}
-            <span>{isSavingConfig ? 'Saving & Testing...' : 'Save & Connect Supabase'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleImportFromSupabase}
+              disabled={importing || !supabaseKeyInput.trim()}
+              className="px-4 py-2.5 rounded-xl bg-white border border-[#6E4D2E] text-[#6E4D2E] hover:bg-[#FAF7F2] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+            >
+              <Download className={`w-3.5 h-3.5 ${importing ? 'animate-bounce' : ''}`} />
+              <span>{importing ? 'Pulling Data...' : 'Pull Data Now'}</span>
+            </button>
+
+            <button
+              onClick={handleSaveDirectSupabase}
+              disabled={isSavingConfig}
+              className="px-5 py-2.5 rounded-xl bg-[#6E4D2E] text-white hover:bg-[#583B20] text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              {isSavingConfig ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Check className="w-3.5 h-3.5" />
+              )}
+              <span>{isSavingConfig ? 'Saving & Syncing...' : 'Save & Connect Supabase'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -566,7 +666,7 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
             </div>
             <h4 className="text-xs font-bold text-[#231B15]">Add Environment Keys</h4>
             <p className="text-[11px] text-[#5C5046]">
-              Copy your Project URL & Service Role key into <code className="bg-white px-1 py-0.5 rounded border border-[#E8E1D7]">.env</code> or Secrets panel.
+              Copy your Project URL & Service Role key into <code className="bg-white px-1 py-0.5 rounded border border-[#E8E1D7]">.env</code> or the inputs above.
             </p>
           </div>
         </div>
