@@ -1,5 +1,12 @@
 import { Category, Product, Order, AdminStats, OrderStatus } from '../types';
 import { defaultCategories, defaultProducts } from '../data/defaultCatalog';
+import {
+  getClientSupabase,
+  getClientSupabaseConfig,
+  testDirectSupabaseConnection,
+  syncDirectToSupabase,
+  fetchDirectFromSupabase,
+} from './supabaseClient';
 
 function getApiBase(): string {
   const customUrl = typeof window !== 'undefined' ? localStorage.getItem('grf_custom_api_url') : null;
@@ -464,13 +471,16 @@ export const api = {
       if (res.ok) return await res.json();
     } catch {}
 
+    const clientCfg = getClientSupabaseConfig();
+    const hasClientConfig = Boolean(clientCfg.url && clientCfg.key);
+
     return {
-      supabaseConfigured: false,
-      databaseProvider: 'Local Storage / Static Dataset',
+      supabaseConfigured: hasClientConfig,
+      databaseProvider: hasClientConfig ? 'Supabase (Direct Client)' : 'Local Storage / Static Dataset',
       totalProducts: getLocalProducts().length,
       totalCategories: getLocalCategories().length,
       totalOrders: getLocalOrders().length,
-      supabaseUrl: '',
+      supabaseUrl: clientCfg.url || '',
       schemaFile: 'data/supabase-schema.sql',
     };
   },
@@ -488,6 +498,7 @@ export const api = {
     error?: string;
     details?: string;
   }> {
+    // 1. Try testing via backend API endpoint
     try {
       const res = await fetch(`${API_BASE}/database/test`, {
         headers: {
@@ -495,47 +506,50 @@ export const api = {
         },
       });
       if (res.ok) return await res.json();
-      const errData = await res.json().catch(() => ({}));
-      return {
-        configured: false,
-        connected: false,
-        url: '',
-        hasKey: false,
-        keyType: 'None',
-        categoriesTableOk: false,
-        productsTableOk: false,
-        ordersTableOk: false,
-        storageOk: false,
-        error: errData.error || `Server returned HTTP ${res.status}`,
-      };
-    } catch (err: any) {
-      return {
-        configured: false,
-        connected: false,
-        url: '',
-        hasKey: false,
-        keyType: 'None',
-        categoriesTableOk: false,
-        productsTableOk: false,
-        ordersTableOk: false,
-        storageOk: false,
-        error: `Could not reach backend API at ${API_BASE}. Make sure the backend server is running and accessible.`,
-      };
-    }
+    } catch {}
+
+    // 2. Direct browser test via Supabase client
+    const directRes = await testDirectSupabaseConnection();
+    return {
+      configured: Boolean(directRes.url && directRes.hasKey),
+      connected: directRes.connected,
+      url: directRes.url,
+      hasKey: directRes.hasKey,
+      keyType: directRes.hasKey ? 'Direct Client Key' : 'None',
+      categoriesTableOk: directRes.categoriesTableOk,
+      productsTableOk: directRes.productsTableOk,
+      ordersTableOk: directRes.ordersTableOk,
+      storageOk: directRes.connected,
+      error: directRes.error,
+      details: directRes.details,
+    };
   },
 
   async syncToSupabase(token?: string): Promise<{ success: boolean; message: string; synced: any }> {
-    const res = await fetch(`${API_BASE}/database/sync`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token || localStorage.getItem('grf_admin_token') || ''}`,
-      },
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to sync to Supabase');
-    }
-    return res.json();
+    // 1. Try server sync first
+    try {
+      const res = await fetch(`${API_BASE}/database/sync`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token || localStorage.getItem('grf_admin_token') || ''}`,
+        },
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {}
+
+    // 2. Fallback to direct client sync
+    const categories = getLocalCategories();
+    const products = getLocalProducts();
+    const orders = getLocalOrders();
+
+    const synced = await syncDirectToSupabase(categories, products, orders);
+    return {
+      success: true,
+      message: `Directly synced ${synced.syncedCategories} categories, ${synced.syncedProducts} products, and ${synced.syncedOrders} orders to Supabase!`,
+      synced,
+    };
   },
 
   // Admin Auth

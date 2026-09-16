@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Server, CheckCircle2, Copy, Check, ArrowRight, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
+import { Database, Server, CheckCircle2, Copy, Check, ArrowRight, ShieldCheck, AlertCircle, RefreshCw, Key, Link2, ExternalLink } from 'lucide-react';
 import { api } from '../services/api';
+import { getClientSupabaseConfig, saveClientSupabaseConfig, testDirectSupabaseConnection } from '../services/supabaseClient';
 
 interface DatabaseTabProps {
   token: string | null;
@@ -38,8 +39,16 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
   } | null>(null);
   const [testingDiagnostics, setTestingDiagnostics] = useState(false);
 
+  // Direct Supabase Settings inputs
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState('');
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState('');
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
   useEffect(() => {
     loadStatus();
+    const config = getClientSupabaseConfig();
+    setSupabaseUrlInput(config.url || 'https://cprgtuyfytwfhigofvsj.supabase.co');
+    setSupabaseKeyInput(config.key || '');
   }, [token]);
 
   const loadStatus = async () => {
@@ -54,6 +63,28 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
     }
   };
 
+  const handleSaveDirectSupabase = async () => {
+    if (!supabaseUrlInput.trim()) {
+      showToast('error', 'Please enter your Supabase Project URL');
+      return;
+    }
+    if (!supabaseKeyInput.trim()) {
+      showToast('error', 'Please paste your Supabase API Key (service_role or anon)');
+      return;
+    }
+
+    setIsSavingConfig(true);
+    try {
+      saveClientSupabaseConfig(supabaseUrlInput.trim(), supabaseKeyInput.trim());
+      showToast('success', 'Supabase credentials saved in browser!');
+      await handleTestConnection();
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to save configuration');
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
   const handleTestConnection = async () => {
     setTestingDiagnostics(true);
     try {
@@ -62,7 +93,7 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
       if (diag.connected) {
         showToast('success', 'Supabase connected successfully and all tables are ready!');
       } else {
-        showToast('error', diag.error || 'Connection failed.');
+        showToast('error', diag.error || 'Connection check failed.');
       }
       await loadStatus();
     } catch (err: any) {
@@ -73,8 +104,9 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
   };
 
   const handleSyncToSupabase = async () => {
-    if (!status?.supabaseConfigured) {
-      showToast('error', 'Please configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your environment first.');
+    const config = getClientSupabaseConfig();
+    if (!status?.supabaseConfigured && !config.key) {
+      showToast('error', 'Please paste your Supabase Key in the Direct Connection box below and click Save.');
       return;
     }
 
@@ -410,6 +442,88 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
               )}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Direct Supabase Key & Instant Connect Box */}
+      <div className="bg-white rounded-2xl border border-[#E8E1D7] p-6 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#FAF7F2] border border-[#E8E1D7] flex items-center justify-center text-[#6E4D2E]">
+              <Key className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-[#231B15]">
+                Direct Supabase Connection (Instant Browser Sync)
+              </h3>
+              <p className="text-xs text-[#82756A]">
+                Paste your Supabase credentials here to connect immediately from your browser without restarting servers.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="https://supabase.com/dashboard/project/cprgtuyfytwfhigofvsj/settings/api"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-semibold text-[#6E4D2E] hover:text-[#583B20] inline-flex items-center gap-1 self-start sm:self-auto"
+          >
+            <span>Supabase API Keys</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div>
+            <label className="block text-xs font-bold text-[#231B15] mb-1">
+              Supabase Project URL
+            </label>
+            <div className="relative">
+              <Link2 className="w-4 h-4 text-[#82756A] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={supabaseUrlInput}
+                onChange={(e) => setSupabaseUrlInput(e.target.value)}
+                placeholder="https://your-project.supabase.co"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-[#E8E1D7] bg-[#FAF7F2] text-xs font-mono text-[#231B15] focus:outline-none focus:border-[#6E4D2E] focus:bg-white transition-colors"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#231B15] mb-1">
+              Supabase API Key (<span className="text-[#6E4D2E]">service_role</span> or <span className="text-[#6E4D2E]">anon</span>)
+            </label>
+            <div className="relative">
+              <Key className="w-4 h-4 text-[#82756A] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="password"
+                value={supabaseKeyInput}
+                onChange={(e) => setSupabaseKeyInput(e.target.value)}
+                placeholder="Paste your Supabase API key (eyJhbGci...)"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-[#E8E1D7] bg-[#FAF7F2] text-xs font-mono text-[#231B15] focus:outline-none focus:border-[#6E4D2E] focus:bg-white transition-colors"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <p className="text-[11px] text-[#82756A]">
+            💡 Tip: Use your <strong>service_role</strong> key for full sync privileges or <strong>anon</strong> public key.
+          </p>
+
+          <button
+            onClick={handleSaveDirectSupabase}
+            disabled={isSavingConfig}
+            className="px-5 py-2.5 rounded-xl bg-[#6E4D2E] text-white hover:bg-[#583B20] text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+          >
+            {isSavingConfig ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Check className="w-3.5 h-3.5" />
+            )}
+            <span>{isSavingConfig ? 'Saving & Testing...' : 'Save & Connect Supabase'}</span>
+          </button>
         </div>
       </div>
 
