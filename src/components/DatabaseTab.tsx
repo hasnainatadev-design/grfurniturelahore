@@ -23,6 +23,20 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
   const [syncing, setSyncing] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [copiedEnv, setCopiedEnv] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<{
+    configured: boolean;
+    connected: boolean;
+    url: string;
+    hasKey: boolean;
+    keyType: string;
+    categoriesTableOk: boolean;
+    productsTableOk: boolean;
+    ordersTableOk: boolean;
+    storageOk: boolean;
+    error?: string;
+    details?: string;
+  } | null>(null);
+  const [testingDiagnostics, setTestingDiagnostics] = useState(false);
 
   useEffect(() => {
     loadStatus();
@@ -37,6 +51,24 @@ export const DatabaseTab: React.FC<DatabaseTabProps> = ({ token, onDataChanged, 
       console.error('Failed to get database status:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingDiagnostics(true);
+    try {
+      const diag = await api.testDatabaseConnection(token || undefined);
+      setDiagnostics(diag);
+      if (diag.connected) {
+        showToast('success', 'Supabase connected successfully and all tables are ready!');
+      } else {
+        showToast('error', diag.error || 'Connection failed.');
+      }
+      await loadStatus();
+    } catch (err: any) {
+      showToast('error', err.message || 'Diagnostic test failed.');
+    } finally {
+      setTestingDiagnostics(false);
     }
   };
 
@@ -172,15 +204,96 @@ CREATE POLICY "Allow Uploads to Product Images" ON storage.objects FOR INSERT WI
           </p>
         </div>
 
-        <button
-          onClick={loadStatus}
-          disabled={loading}
-          className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-white border border-[#E8E1D7] text-[#5C5046] hover:text-[#231B15] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh Status</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={handleTestConnection}
+            disabled={testingDiagnostics}
+            className="px-3.5 py-2 rounded-xl bg-[#6E4D2E] text-white hover:bg-[#583B20] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${testingDiagnostics ? 'animate-spin' : ''}`} />
+            <span>{testingDiagnostics ? 'Testing...' : 'Test Connection'}</span>
+          </button>
+
+          <button
+            onClick={loadStatus}
+            disabled={loading}
+            className="px-3.5 py-2 rounded-xl bg-white border border-[#E8E1D7] text-[#5C5046] hover:text-[#231B15] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
+
+      {/* Diagnostics Alert Box (if run) */}
+      {diagnostics && (
+        <div
+          className={`p-4 rounded-2xl border transition-all ${
+            diagnostics.connected
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-amber-50 border-amber-200 text-amber-900'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            {diagnostics.connected ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <h4 className="font-bold text-sm">
+                  {diagnostics.connected
+                    ? 'Supabase Connection Verified'
+                    : 'Supabase Connection Check'}
+                </h4>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-black/5 self-start sm:self-auto">
+                  Key Type: {diagnostics.keyType}
+                </span>
+              </div>
+
+              {diagnostics.error && (
+                <p className="text-xs bg-red-100/80 text-red-900 p-2.5 rounded-xl border border-red-200 font-mono">
+                  {diagnostics.error}
+                </p>
+              )}
+
+              {diagnostics.details && (
+                <p className="text-xs text-emerald-800 font-medium">
+                  {diagnostics.details}
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                <div className="bg-white/80 p-2 rounded-xl text-center border border-black/5">
+                  <span className="text-[10px] text-gray-500 block">Categories Table</span>
+                  <span className={`text-xs font-bold ${diagnostics.categoriesTableOk ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {diagnostics.categoriesTableOk ? 'Ready' : 'Missing'}
+                  </span>
+                </div>
+                <div className="bg-white/80 p-2 rounded-xl text-center border border-black/5">
+                  <span className="text-[10px] text-gray-500 block">Products Table</span>
+                  <span className={`text-xs font-bold ${diagnostics.productsTableOk ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {diagnostics.productsTableOk ? 'Ready' : 'Missing'}
+                  </span>
+                </div>
+                <div className="bg-white/80 p-2 rounded-xl text-center border border-black/5">
+                  <span className="text-[10px] text-gray-500 block">Orders Table</span>
+                  <span className={`text-xs font-bold ${diagnostics.ordersTableOk ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {diagnostics.ordersTableOk ? 'Ready' : 'Missing'}
+                  </span>
+                </div>
+                <div className="bg-white/80 p-2 rounded-xl text-center border border-black/5">
+                  <span className="text-[10px] text-gray-500 block">Cloud Storage</span>
+                  <span className={`text-xs font-bold ${diagnostics.storageOk ? 'text-emerald-700' : 'text-amber-600'}`}>
+                    {diagnostics.storageOk ? 'Active' : 'Not setup'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Connection Status Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

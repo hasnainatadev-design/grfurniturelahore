@@ -3,23 +3,19 @@ import { Category, Product, Order, OrderStatus } from '../src/types';
 
 // Lazy-initialized Supabase client
 let supabaseClient: SupabaseClient | null = null;
-let supabaseInitializationAttempted = false;
 
 export function getSupabaseClient(): SupabaseClient | null {
   if (supabaseClient) return supabaseClient;
-  if (supabaseInitializationAttempted) return supabaseClient;
 
-  supabaseInitializationAttempted = true;
-
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key =
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)?.trim();
+  const key = (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.SUPABASE_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY;
+    process.env.VITE_SUPABASE_ANON_KEY
+  )?.trim();
 
   if (!url || !key) {
-    console.log('ℹ️ Supabase credentials not set in environment. Operating in local database mode.');
     return null;
   }
 
@@ -705,4 +701,122 @@ export async function syncLocalDataToSupabase(localData: {
   }
 
   return { syncedCategories, syncedProducts, syncedOrders };
+}
+
+export async function testSupabaseConnectionDetailed(): Promise<{
+  configured: boolean;
+  connected: boolean;
+  url: string;
+  hasKey: boolean;
+  keyType: string;
+  categoriesTableOk: boolean;
+  productsTableOk: boolean;
+  ordersTableOk: boolean;
+  storageOk: boolean;
+  error?: string;
+  details?: string;
+}> {
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)?.trim();
+  const key = (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY
+  )?.trim();
+
+  if (!url || !key) {
+    return {
+      configured: false,
+      connected: false,
+      url: url || 'Missing SUPABASE_URL',
+      hasKey: Boolean(key),
+      keyType: 'None',
+      categoriesTableOk: false,
+      productsTableOk: false,
+      ordersTableOk: false,
+      storageOk: false,
+      error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing from environment variables.',
+    };
+  }
+
+  const isServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  try {
+    const sb = getSupabaseClient();
+    if (!sb) {
+      return {
+        configured: true,
+        connected: false,
+        url,
+        hasKey: true,
+        keyType: isServiceRole ? 'service_role' : 'anon',
+        categoriesTableOk: false,
+        productsTableOk: false,
+        ordersTableOk: false,
+        storageOk: false,
+        error: 'Supabase client failed to initialize with provided credentials.',
+      };
+    }
+
+    // Test querying categories table
+    const { data: catData, error: catError } = await sb.from('categories').select('id').limit(1);
+    const { data: prodData, error: prodError } = await sb.from('products').select('id').limit(1);
+    const { data: ordData, error: ordError } = await sb.from('orders').select('id').limit(1);
+
+    if (catError && catError.code === '42P01') {
+      return {
+        configured: true,
+        connected: false,
+        url,
+        hasKey: true,
+        keyType: isServiceRole ? 'service_role' : 'anon',
+        categoriesTableOk: false,
+        productsTableOk: false,
+        ordersTableOk: false,
+        storageOk: false,
+        error: 'Tables do not exist yet in Supabase. Please run the SQL schema script in Supabase SQL Editor.',
+      };
+    }
+
+    if (catError) {
+      return {
+        configured: true,
+        connected: false,
+        url,
+        hasKey: true,
+        keyType: isServiceRole ? 'service_role' : 'anon',
+        categoriesTableOk: false,
+        productsTableOk: false,
+        ordersTableOk: false,
+        storageOk: false,
+        error: `Supabase query error: ${catError.message} (code: ${catError.code || 'unknown'})`,
+      };
+    }
+
+    return {
+      configured: true,
+      connected: true,
+      url,
+      hasKey: true,
+      keyType: isServiceRole ? 'service_role' : 'anon',
+      categoriesTableOk: !catError,
+      productsTableOk: !prodError,
+      ordersTableOk: !ordError,
+      storageOk: true,
+      details: 'All tables accessible and ready for operations.',
+    };
+  } catch (err: any) {
+    return {
+      configured: true,
+      connected: false,
+      url,
+      hasKey: true,
+      keyType: isServiceRole ? 'service_role' : 'anon',
+      categoriesTableOk: false,
+      productsTableOk: false,
+      ordersTableOk: false,
+      storageOk: false,
+      error: err.message || 'Unknown network error connecting to Supabase',
+    };
+  }
 }

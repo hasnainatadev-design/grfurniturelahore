@@ -475,6 +475,55 @@ export const api = {
     };
   },
 
+  async testDatabaseConnection(token?: string): Promise<{
+    configured: boolean;
+    connected: boolean;
+    url: string;
+    hasKey: boolean;
+    keyType: string;
+    categoriesTableOk: boolean;
+    productsTableOk: boolean;
+    ordersTableOk: boolean;
+    storageOk: boolean;
+    error?: string;
+    details?: string;
+  }> {
+    try {
+      const res = await fetch(`${API_BASE}/database/test`, {
+        headers: {
+          Authorization: `Bearer ${token || localStorage.getItem('grf_admin_token') || ''}`,
+        },
+      });
+      if (res.ok) return await res.json();
+      const errData = await res.json().catch(() => ({}));
+      return {
+        configured: false,
+        connected: false,
+        url: '',
+        hasKey: false,
+        keyType: 'None',
+        categoriesTableOk: false,
+        productsTableOk: false,
+        ordersTableOk: false,
+        storageOk: false,
+        error: errData.error || `Server returned HTTP ${res.status}`,
+      };
+    } catch (err: any) {
+      return {
+        configured: false,
+        connected: false,
+        url: '',
+        hasKey: false,
+        keyType: 'None',
+        categoriesTableOk: false,
+        productsTableOk: false,
+        ordersTableOk: false,
+        storageOk: false,
+        error: `Could not reach backend API at ${API_BASE}. Make sure the backend server is running and accessible.`,
+      };
+    }
+  },
+
   async syncToSupabase(token?: string): Promise<{ success: boolean; message: string; synced: any }> {
     const res = await fetch(`${API_BASE}/database/sync`, {
       method: 'POST',

@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/db';
-import { uploadImageToSupabaseStorage, isSupabaseConfigured } from './server/supabase';
+import { uploadImageToSupabaseStorage, isSupabaseConfigured, testSupabaseConnectionDetailed } from './server/supabase';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -357,6 +357,16 @@ app.get('/api/database/status', requireAdmin, async (req: Request, res: Response
       supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'Not configured in .env',
       schemaFile: '/supabase-schema.sql',
     });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Deep Diagnostics & Test Endpoint
+app.get('/api/database/test', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const diagnostics = await testSupabaseConnectionDetailed();
+    res.json(diagnostics);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
