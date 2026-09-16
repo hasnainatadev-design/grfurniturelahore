@@ -1,7 +1,26 @@
 import { Category, Product, Order, AdminStats, OrderStatus } from '../types';
 import { defaultCategories, defaultProducts } from '../data/defaultCatalog';
 
-const API_BASE = ((import.meta as any).env?.VITE_API_URL as string)?.replace(/\/$/, '') || '/api';
+function getApiBase(): string {
+  const customUrl = typeof window !== 'undefined' ? localStorage.getItem('grf_custom_api_url') : null;
+  if (customUrl && customUrl.trim().length > 0) {
+    return customUrl.trim().replace(/\/$/, '');
+  }
+
+  const envUrl = ((import.meta as any).env?.VITE_API_URL as string)?.trim();
+  if (envUrl && envUrl.length > 0) {
+    return envUrl.replace(/\/$/, '');
+  }
+
+  // Automatic connection to your live Velixir backend when hosted on Netlify
+  if (typeof window !== 'undefined' && window.location.hostname.includes('netlify.app')) {
+    return 'https://grfurnitureapi.velixir.run';
+  }
+
+  return '/api';
+}
+
+const API_BASE = getApiBase();
 
 // Client-side Local Storage Keys for offline / static host resilience
 const LS_PRODUCTS = 'grf_local_products';
