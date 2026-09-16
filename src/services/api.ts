@@ -60,12 +60,24 @@ function saveLocalCategories(cats: Category[]) {
   } catch {}
 }
 
+function sortProductsByLatest(prods: Product[]): Product[] {
+  return [...prods].sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (timeA !== timeB) return timeB - timeA;
+    return (b.id || '').localeCompare(a.id || '');
+  });
+}
+
 function getLocalProducts(): Product[] {
   try {
     const raw = localStorage.getItem(LS_PRODUCTS);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return sortProductsByLatest(parsed);
+    }
   } catch {}
-  return defaultProducts;
+  return sortProductsByLatest(defaultProducts);
 }
 
 function saveLocalProducts(prods: Product[]) {

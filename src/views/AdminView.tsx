@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ShieldCheck,
   Package,
@@ -24,12 +24,15 @@ import {
   Volume2,
   VolumeX,
   Radio,
+  Image as ImageIcon,
+  Sparkles,
 } from 'lucide-react';
 import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import { DatabaseTab } from '../components/DatabaseTab';
 import { api } from '../services/api';
 import { Product, Category, Order, OrderStatus, AdminStats } from '../types';
 import { formatPKR } from '../context/CartContext';
+import { getClientSupabase } from '../services/supabaseClient';
 
 interface AdminViewProps {
   onBackToStore: () => void;
@@ -55,6 +58,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
   // Real-time synchronization & sound alerts
   const [realTimeConnected, setRealTimeConnected] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundTested, setSoundTested] = useState(false);
 
   // Modals
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -65,7 +69,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
 
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
 
-  // Delete Confirmation Modal State (replaces native window.confirm which is blocked in iframes)
+  // Delete Confirmation Modal State
   const [deleteTarget, setDeleteTarget] = useState<{
     type: 'product' | 'category' | 'order';
     id: string;
@@ -74,49 +78,147 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Toast Notification State (replaces window.alert)
+  // Toast Notification State
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const showToast = (type: 'success' | 'error', text: string) => {
     setToastMessage({ type, text });
     setTimeout(() => {
       setToastMessage((cur) => (cur?.text === text ? null : cur));
-    }, 5000);
+    }, 6000);
   };
 
-  // Orders Filter
+  // Filters
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('all');
 
-  // Audio notification chime for real-time orders
-  const playOrderChime = () => {
-    if (!soundEnabled) return;
+  // Audio Context & Order Tracking references
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const isInitialLoadRef = useRef<boolean>(true);
+
+  const getAudioContext = () => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      
-      // 4-tone melodious chime (C5, E5, G5, C6)
-      const freqs = [523.25, 659.25, 783.99, 1046.5];
-      freqs.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.1);
+      if (!audioCtxRef.current) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          audioCtxRef.current = new AudioCtx();
+        }
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    } catch {}
+    return audioCtxRef.current;
+  };
 
-        gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.1);
-        gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + idx * 0.1 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.1 + 0.4);
+  // Unlock browser audio context on any click/touch
+  useEffect(() => {
+    const unlockAudio = () => {
+      getAudioContext();
+    };
+    window.addEventListener('click', unlockAudio, { passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio, { passive: true });
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
 
-        osc.connect(gain);
-        gain.connect(ctx.destination);
+  // Audio notification chime & voice announcement for real-time orders
+  const playOrderChime = (customerName?: string, totalAmount?: number) => {
+    if (!soundEnabled) return;
 
-        osc.start(ctx.currentTime + idx * 0.1);
-        osc.stop(ctx.currentTime + idx * 0.1 + 0.4);
-      });
-    } catch {
-      // Audio autoplay policy fallback
+    // 1. Play clear, loud multi-tone chime (D5 -> A5 -> D6 -> F#6)
+    try {
+      const ctx = getAudioContext();
+      if (ctx) {
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+
+        const notes = [
+          { freq: 587.33, start: 0, duration: 0.16, type: 'sine' as OscillatorType, vol: 0.35 },
+          { freq: 880.0, start: 0.12, duration: 0.18, type: 'triangle' as OscillatorType, vol: 0.45 },
+          { freq: 1174.66, start: 0.25, duration: 0.22, type: 'sine' as OscillatorType, vol: 0.45 },
+          { freq: 1479.98, start: 0.40, duration: 0.45, type: 'sine' as OscillatorType, vol: 0.5 },
+        ];
+
+        notes.forEach((note) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = note.type;
+          osc.frequency.setValueAtTime(note.freq, ctx.currentTime + note.start);
+
+          gain.gain.setValueAtTime(0.001, ctx.currentTime + note.start);
+          gain.gain.linearRampToValueAtTime(note.vol, ctx.currentTime + note.start + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + note.start + note.duration);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(ctx.currentTime + note.start);
+          osc.stop(ctx.currentTime + note.start + note.duration + 0.05);
+        });
+      }
+    } catch (err) {
+      console.warn('Audio chime playback error:', err);
     }
+
+    // 2. Voice announcement via SpeechSynthesis
+    try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const text = customerName
+          ? `New order received from ${customerName}.`
+          : 'New order received on GR Furniture.';
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.1;
+        utterance.volume = 1;
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (err) {
+      console.warn('Voice announcement error:', err);
+    }
+  };
+
+  // Test sound function for admin
+  const handleTestSound = () => {
+    getAudioContext();
+    playOrderChime('Ahmed Khan (Test)', 125000);
+    setSoundTested(true);
+    showToast('success', '🔊 Order chime & voice announcement tested successfully!');
+    setTimeout(() => setSoundTested(false), 3000);
+  };
+
+  // Handle incoming order list (checks for new orders to trigger chime)
+  const processIncomingOrders = (incomingOrders: Order[]) => {
+    if (isInitialLoadRef.current) {
+      knownOrderIdsRef.current = new Set(incomingOrders.map((o) => o.id));
+      isInitialLoadRef.current = false;
+      setOrders(incomingOrders);
+      return;
+    }
+
+    // Detect newly arrived orders
+    const newOrders = incomingOrders.filter((o) => !knownOrderIdsRef.current.has(o.id));
+    if (newOrders.length > 0) {
+      const latestOrder = newOrders[0];
+      playOrderChime(latestOrder.customerName, latestOrder.totalAmount);
+      showToast(
+        'success',
+        `🔔 New Order Received: #${latestOrder.orderNumber} - ${latestOrder.customerName} (${formatPKR(latestOrder.totalAmount)})`
+      );
+      newOrders.forEach((o) => knownOrderIdsRef.current.add(o.id));
+      if (onDataChanged) onDataChanged();
+    }
+
+    setOrders(incomingOrders);
   };
 
   // Check login on load
@@ -126,10 +228,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
     }
   }, [token, refreshKey]);
 
-  // Real-Time SSE Stream for Instant Multi-User Order Updates
+  // Real-Time SSE + Supabase Realtime + Fast Fallback Polling
   useEffect(() => {
     if (!token) return;
 
+    // 1. SSE Stream
     const sseUrl = `/api/admin/events?token=${encodeURIComponent(token)}`;
     const eventSource = new EventSource(sseUrl);
 
@@ -141,23 +244,19 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
       try {
         const data = JSON.parse(e.data);
         if (data.order) {
-          setOrders((prev) => {
-            // Guard against duplicates
-            if (prev.some((o) => o.id === data.order.id)) return prev;
-            return [data.order, ...prev];
-          });
-          playOrderChime();
-          showToast(
-            'success',
-            `🔔 New Order Placed: #${data.order.orderNumber} - ${data.order.customerName} (${formatPKR(data.order.totalAmount)})`
-          );
+          const ord = data.order;
+          if (!knownOrderIdsRef.current.has(ord.id)) {
+            knownOrderIdsRef.current.add(ord.id);
+            setOrders((prev) => [ord, ...prev.filter((o) => o.id !== ord.id)]);
+            playOrderChime(ord.customerName, ord.totalAmount);
+            showToast(
+              'success',
+              `🔔 New Order Placed: #${ord.orderNumber} - ${ord.customerName} (${formatPKR(ord.totalAmount)})`
+            );
+          }
         }
-        if (data.stats) {
-          setStats(data.stats);
-        }
-        if (onDataChanged) {
-          onDataChanged();
-        }
+        if (data.stats) setStats(data.stats);
+        if (onDataChanged) onDataChanged();
       } catch (err) {
         console.error('Error handling new_order event:', err);
       }
@@ -169,9 +268,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
         if (data.order) {
           setOrders((prev) => prev.map((o) => (o.id === data.order.id ? data.order : o)));
         }
-        if (data.stats) {
-          setStats(data.stats);
-        }
+        if (data.stats) setStats(data.stats);
       } catch (err) {
         console.error('Error handling order_updated event:', err);
       }
@@ -183,9 +280,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
         if (data.id) {
           setOrders((prev) => prev.filter((o) => o.id !== data.id));
         }
-        if (data.stats) {
-          setStats(data.stats);
-        }
+        if (data.stats) setStats(data.stats);
       } catch (err) {
         console.error('Error handling order_deleted event:', err);
       }
@@ -214,21 +309,78 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
     };
 
     eventSource.onerror = () => {
+      // Backend SSE not available in static/serverless mode, fallback polling handles updates
       setRealTimeConnected(false);
     };
 
-    // Background silent fallback sync every 25 seconds
+    // 2. Direct Supabase Realtime Channel
+    const sb = getClientSupabase();
+    let supabaseChannel: any = null;
+    if (sb) {
+      try {
+        supabaseChannel = sb
+          .channel('public:orders_realtime')
+          .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'orders' },
+            (payload: any) => {
+              const raw = payload.new;
+              if (raw) {
+                const newId = String(raw.id || raw.order_number);
+                if (!knownOrderIdsRef.current.has(newId)) {
+                  knownOrderIdsRef.current.add(newId);
+                  const newOrd: Order = {
+                    id: newId,
+                    orderNumber: raw.order_number || newId,
+                    customerName: raw.customer_name || 'Customer',
+                    phone: raw.phone || '',
+                    whatsappNumber: raw.whatsapp_number || raw.phone || '',
+                    address: raw.address || '',
+                    city: raw.city || 'Lahore',
+                    notes: raw.notes || '',
+                    items: Array.isArray(raw.items) ? raw.items : [],
+                    totalAmount: Number(raw.total_amount) || 0,
+                    status: raw.status || 'New',
+                    createdAt: raw.created_at || new Date().toISOString(),
+                  };
+                  setOrders((prev) => [newOrd, ...prev.filter((o) => o.id !== newId)]);
+                  playOrderChime(newOrd.customerName, newOrd.totalAmount);
+                  showToast(
+                    'success',
+                    `🔔 New Order Placed: #${newOrd.orderNumber} - ${newOrd.customerName} (${formatPKR(newOrd.totalAmount)})`
+                  );
+                  api.getStats(token).then(setStats).catch(() => {});
+                  if (onDataChanged) onDataChanged();
+                }
+              }
+            }
+          )
+          .subscribe();
+      } catch {}
+    }
+
+    // 3. Fast responsive polling fallback (every 6 seconds)
     const fallbackSync = setInterval(() => {
-      api.getOrders(token).then((res) => {
-        setOrders(res);
-      }).catch(() => {});
-      api.getStats(token).then((res) => {
-        setStats(res);
-      }).catch(() => {});
-    }, 25000);
+      api.getOrders(token)
+        .then((res) => {
+          processIncomingOrders(res);
+        })
+        .catch(() => {});
+
+      api.getStats(token)
+        .then((res) => {
+          setStats(res);
+        })
+        .catch(() => {});
+    }, 6000);
 
     return () => {
       eventSource.close();
+      if (supabaseChannel) {
+        try {
+          sb?.removeChannel(supabaseChannel);
+        } catch {}
+      }
       clearInterval(fallbackSync);
     };
   }, [token, soundEnabled]);
@@ -245,10 +397,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
       setStats(statsRes);
       setProducts(productsRes);
       setCategories(categoriesRes);
-      setOrders(ordersRes);
+      processIncomingOrders(ordersRes);
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
-      // If unauthorized, clear token
       if (err.message?.includes('Unauthorized')) {
         setToken(null);
         localStorage.removeItem('grf_admin_token');
@@ -462,6 +613,32 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
     return matchesStatus && matchesSearch;
   });
 
+  const displayedProducts = useMemo(() => {
+    let list = [...products].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return (b.id || '').localeCompare(a.id || '');
+    });
+
+    if (productCategoryFilter !== 'all') {
+      list = list.filter((p) => p.category === productCategoryFilter);
+    }
+
+    if (productSearchQuery.trim()) {
+      const q = productSearchQuery.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q) ||
+          p.material?.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [products, productCategoryFilter, productSearchQuery]);
+
   return (
     <div className="bg-[#FAF7F2] min-h-screen pb-20">
       {/* Top Admin Bar */}
@@ -486,7 +663,43 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Sound & Voice Alert Controls */}
+            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !soundEnabled;
+                  setSoundEnabled(next);
+                  if (next) {
+                    getAudioContext();
+                    showToast('success', '🔊 Sound alerts & voice announcements turned ON');
+                  } else {
+                    showToast('error', '🔇 Sound alerts turned OFF');
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  soundEnabled
+                    ? 'bg-[#936B3B] text-white shadow-xs'
+                    : 'text-[#9B9185] hover:text-white hover:bg-white/10'
+                }`}
+                title={soundEnabled ? 'Order sound alert is ON (Click to mute)' : 'Order sound alert is OFF (Click to turn on)'}
+              >
+                {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                <span className="hidden md:inline">{soundEnabled ? 'Sound Alert: ON' : 'Muted'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTestSound}
+                className="px-2 py-1.5 text-[11px] font-bold text-amber-300 hover:text-amber-200 hover:bg-white/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                title="Click to test new order beep and voice announcement"
+              >
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                <span className="hidden sm:inline">{soundTested ? 'Playing...' : 'Test Voice'}</span>
+              </button>
+            </div>
+
             <button
               onClick={() => setRefreshKey((k) => k + 1)}
               className="p-2 text-[#D8CEBE] hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
@@ -899,7 +1112,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
                   Furniture ({products.length})
                 </h2>
                 <p className="text-xs text-[#786F66]">
-                  Add new furniture, edit details, or change photos.
+                  Latest created furniture appears at the top. Add, edit, or upload multiple photos.
                 </p>
               </div>
 
@@ -916,80 +1129,152 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBackToStore, onDataChang
               </button>
             </div>
 
-            {/* Products Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {products.map((prod) => (
-                <div
-                  key={prod.id}
-                  className="bg-white rounded-2xl border border-[#EAE4DC] p-4 shadow-2xs flex flex-col justify-between"
+            {/* Filter & Search Bar */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-3.5 rounded-2xl border border-[#EAE4DC] shadow-2xs">
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 text-[#9B9185] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={productSearchQuery}
+                  onChange={(e) => setProductSearchQuery(e.target.value)}
+                  placeholder="Search furniture by name, material, or keyword..."
+                  className="w-full pl-9 pr-4 py-2 bg-[#FAF8F5] border border-[#DDD5CA] rounded-xl text-xs text-[#201D1A] focus:outline-hidden focus:border-[#936B3B]"
+                />
+                {productSearchQuery && (
+                  <button
+                    onClick={() => setProductSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <select
+                  value={productCategoryFilter}
+                  onChange={(e) => setProductCategoryFilter(e.target.value)}
+                  className="w-full sm:w-auto px-3 py-2 bg-[#FAF8F5] border border-[#DDD5CA] rounded-xl text-xs font-semibold text-[#201D1A] focus:outline-hidden focus:border-[#936B3B] cursor-pointer"
                 >
-                  <div className="space-y-3">
-                    <div className="aspect-16/10 rounded-xl overflow-hidden bg-[#F4EFEA] relative">
-                      <img
-                        src={prod.images[0]}
-                        alt={prod.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-2 left-2 flex gap-1">
-                        <span className="text-[10px] bg-[#24201D] text-white px-2 py-0.5 rounded-md font-medium">
-                          {prod.category}
-                        </span>
-                        {prod.isFeatured && (
-                          <span className="text-[10px] bg-[#936B3B] text-white px-2 py-0.5 rounded-md font-bold">
-                            Featured
+                  <option value="all">All Categories ({products.length})</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Products Grid */}
+            {displayedProducts.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#EAE4DC] p-12 text-center space-y-3">
+                <Package className="w-12 h-12 text-[#B8ADA1] mx-auto opacity-50" />
+                <h4 className="font-bold text-[#201D1A] text-sm">No furniture items found</h4>
+                <p className="text-xs text-[#786F66] max-w-sm mx-auto">
+                  {productSearchQuery || productCategoryFilter !== 'all'
+                    ? 'No products match your current search or category filter.'
+                    : 'Click "Add Furniture" above to add your first luxury furniture piece.'}
+                </p>
+                {(productSearchQuery || productCategoryFilter !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setProductSearchQuery('');
+                      setProductCategoryFilter('all');
+                    }}
+                    className="text-xs font-bold text-[#936B3B] hover:underline"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {displayedProducts.map((prod, idx) => (
+                  <div
+                    key={prod.id}
+                    className="bg-white rounded-2xl border border-[#EAE4DC] p-4 shadow-2xs flex flex-col justify-between hover:border-[#936B3B]/40 transition-all"
+                  >
+                    <div className="space-y-3">
+                      <div className="aspect-16/10 rounded-xl overflow-hidden bg-[#F4EFEA] relative">
+                        <img
+                          src={prod.images[0]}
+                          alt={prod.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+                          <span className="text-[10px] bg-[#24201D] text-white px-2 py-0.5 rounded-md font-medium">
+                            {prod.category}
                           </span>
+                          {prod.isFeatured && (
+                            <span className="text-[10px] bg-[#936B3B] text-white px-2 py-0.5 rounded-md font-bold">
+                              Featured
+                            </span>
+                          )}
+                          {idx === 0 && (
+                            <span className="text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded-md font-bold">
+                              Newest
+                            </span>
+                          )}
+                        </div>
+
+                        {prod.images.length > 1 && (
+                          <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3" />
+                            <span>{prod.images.length} photos</span>
+                          </div>
                         )}
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold text-sm text-[#201D1A] line-clamp-1">{prod.name}</h4>
+                        <p className="text-xs font-bold text-[#936B3B] mt-0.5">
+                          {formatPKR(prod.price)}
+                          {prod.originalPrice && (
+                            <span className="text-[10px] text-[#9B9185] line-through ml-2 font-normal">
+                              {formatPKR(prod.originalPrice)}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-[#5E554C] line-clamp-2 mt-1">
+                          {prod.description}
+                        </p>
                       </div>
                     </div>
 
-                    <div>
-                      <h4 className="font-bold text-sm text-[#201D1A] line-clamp-1">{prod.name}</h4>
-                      <p className="text-xs font-bold text-[#936B3B] mt-0.5">
-                        {formatPKR(prod.price)}
-                        {prod.originalPrice && (
-                          <span className="text-[10px] text-[#9B9185] line-through ml-2 font-normal">
-                            {formatPKR(prod.originalPrice)}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-[#5E554C] line-clamp-2 mt-1">
-                        {prod.description}
-                      </p>
+                    <div className="pt-3 mt-3 border-t border-[#F0EBE3] flex items-center justify-between">
+                      <span
+                        className={`text-[11px] font-semibold ${
+                          prod.inStock ? 'text-emerald-700' : 'text-amber-700'
+                        }`}
+                      >
+                        {prod.inStock ? '● In Stock' : '○ Made to Order'}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setEditingProduct(prod);
+                            setProductModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg text-[#786F66] hover:text-[#201D1A] hover:bg-[#FAF8F5] border border-[#DDD5CA] cursor-pointer"
+                          title="Edit product"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(prod.id, prod.name, prod.price)}
+                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 border border-red-200 transition-colors cursor-pointer"
+                          title="Delete product"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="pt-3 mt-3 border-t border-[#F0EBE3] flex items-center justify-between">
-                    <span
-                      className={`text-[11px] font-semibold ${
-                        prod.inStock ? 'text-emerald-700' : 'text-amber-700'
-                      }`}
-                    >
-                      {prod.inStock ? '● In Stock' : '○ Made to Order'}
-                    </span>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => {
-                          setEditingProduct(prod);
-                          setProductModalOpen(true);
-                        }}
-                        className="p-1.5 rounded-lg text-[#786F66] hover:text-[#201D1A] hover:bg-[#FAF8F5] border border-[#DDD5CA]"
-                        title="Edit product"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(prod.id, prod.name, prod.price)}
-                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
-                        title="Delete product"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1451,6 +1736,8 @@ function ProductFormModal({
   const [newImageLabel, setNewImageLabel] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const compressImageFile = (file: File): Promise<string> => {
@@ -1491,45 +1778,103 @@ function ProductFormModal({
     });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processAndUploadFiles = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (fileList.length === 0) {
+      setFormError('Please select valid image files (JPG, PNG, WEBP)');
+      return;
+    }
 
     setUploadingImage(true);
     setFormError(null);
+
+    const newUploadedImages: string[] = [];
+    const newUploadedLabels: string[] = [];
+
     try {
-      const base64 = await compressImageFile(file);
-      if (!base64) {
-        setFormError('Failed to process selected image file');
-        setUploadingImage(false);
-        return;
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        setUploadStatus(`Processing photo ${i + 1} of ${fileList.length} (${file.name.slice(0, 20)})...`);
+
+        const base64 = await compressImageFile(file);
+        if (!base64) continue;
+
+        let finalUrl = base64;
+        try {
+          const uploadedUrl = await api.uploadImage(base64, token);
+          if (uploadedUrl) {
+            finalUrl = uploadedUrl;
+          }
+        } catch {
+          // Fallback to base64
+          finalUrl = base64;
+        }
+
+        newUploadedImages.push(finalUrl);
+        const autoLabel =
+          newImageLabel.trim() && fileList.length === 1
+            ? newImageLabel.trim()
+            : file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || `Angle ${images.length + newUploadedImages.length}`;
+        newUploadedLabels.push(autoLabel);
       }
-      try {
-        const uploadedUrl = await api.uploadImage(base64, token);
-        setImages((prev) => [...prev, uploadedUrl || base64]);
-        setImageLabels((prev) => [...prev, newImageLabel.trim() || `Angle / Piece ${prev.length + 1}`]);
+
+      if (newUploadedImages.length > 0) {
+        setImages((prev) => [...prev, ...newUploadedImages]);
+        setImageLabels((prev) => [...prev, ...newUploadedLabels]);
         setNewImageLabel('');
-      } catch {
-        // Fallback to compressed base64 directly
-        setImages((prev) => [...prev, base64]);
-        setImageLabels((prev) => [...prev, newImageLabel.trim() || `Angle / Piece ${prev.length + 1}`]);
-        setNewImageLabel('');
-      } finally {
-        setUploadingImage(false);
+      } else {
+        setFormError('Failed to upload selected photos');
       }
     } catch {
+      setFormError('An error occurred during photo upload');
+    } finally {
       setUploadingImage(false);
-      setFormError('Failed to read selected image file');
+      setUploadStatus(null);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processAndUploadFiles(files);
+    e.target.value = ''; // Reset input
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processAndUploadFiles(e.dataTransfer.files);
     }
   };
 
   const handleAddImageUrl = () => {
-    if (newImageUrl.trim()) {
-      setImages((prev) => [...prev, newImageUrl.trim()]);
-      setImageLabels((prev) => [...prev, newImageLabel.trim() || `Angle / Piece ${prev.length + 1}`]);
-      setNewImageUrl('');
-      setNewImageLabel('');
+    if (!newImageUrl.trim()) return;
+
+    // Support multiple URLs separated by newline or comma
+    const rawUrls = newImageUrl
+      .split(/[\n,]+/)
+      .map((u) => u.trim())
+      .filter((u) => u.startsWith('http://') || u.startsWith('https://') || u.startsWith('data:image/'));
+
+    if (rawUrls.length === 0) {
+      setFormError('Please enter a valid photo URL (starting with http:// or https://)');
+      return;
     }
+
+    setImages((prev) => [...prev, ...rawUrls]);
+    setImageLabels((prev) => [
+      ...prev,
+      ...rawUrls.map((_, i) =>
+        newImageLabel.trim() && rawUrls.length === 1
+          ? newImageLabel.trim()
+          : `Photo ${prev.length + i + 1}`
+      ),
+    ]);
+    setNewImageUrl('');
+    setNewImageLabel('');
   };
 
   const handleRemoveImage = (idx: number) => {
@@ -1731,18 +2076,80 @@ function ProductFormModal({
           <div className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#EAE4DC] space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <label className="block font-bold text-[#463F38]">Photos</label>
+                <label className="block font-bold text-[#463F38]">Product Photos (Multi-Upload)</label>
                 <p className="text-[11px] text-[#786F66]">
-                  The first photo is the <strong>Main Photo</strong> on the website.
+                  Upload multiple photos at once or drop them below. First photo is the <strong>Main Photo</strong>.
                 </p>
               </div>
-              <span className="text-[11px] font-bold text-[#936B3B] bg-[#936B3B]/10 px-2 py-0.5 rounded-md">
-                {images.length} {images.length === 1 ? 'Photo' : 'Photos'}
-              </span>
+              <div className="flex items-center gap-2">
+                {images.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Remove all photos except cover?')) {
+                        setImages([images[0]]);
+                        setImageLabels([imageLabels[0] || 'Main Photo']);
+                      }
+                    }}
+                    className="text-[10px] text-red-600 hover:underline cursor-pointer"
+                  >
+                    Reset to 1
+                  </button>
+                )}
+                <span className="text-[11px] font-bold text-[#936B3B] bg-[#936B3B]/10 px-2 py-0.5 rounded-md">
+                  {images.length} {images.length === 1 ? 'Photo' : 'Photos'}
+                </span>
+              </div>
+            </div>
+
+            {/* Drag and Drop Zone */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-4 text-center transition-all ${
+                isDragging
+                  ? 'border-[#936B3B] bg-[#936B3B]/10 scale-[1.01]'
+                  : 'border-[#DDD5CA] bg-white hover:border-[#936B3B]/50'
+              }`}
+            >
+              <div className="flex flex-col items-center justify-center gap-1.5 pointer-events-none">
+                <Upload className="w-6 h-6 text-[#936B3B]" />
+                <p className="text-xs font-bold text-[#201D1A]">
+                  Drag & Drop Multiple Photos Here, or Browse
+                </p>
+                <p className="text-[10px] text-[#786F66]">
+                  Select multiple files at once (JPG, PNG, WebP) — automatic image optimization
+                </p>
+              </div>
+
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <label className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#936B3B] hover:bg-[#7D5A2F] text-white rounded-xl font-bold text-xs cursor-pointer shadow-xs transition-colors">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{uploadingImage ? 'Uploading Photos...' : 'Select Multiple Photos'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={uploadingImage}
+                  />
+                </label>
+              </div>
+
+              {uploadStatus && (
+                <div className="mt-2 text-xs font-semibold text-[#936B3B] animate-pulse">
+                  {uploadStatus}
+                </div>
+              )}
             </div>
 
             {/* Thumbnail Previews with Label Inputs and Cover Selector */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
               {images.map((img, i) => (
                 <div
                   key={i}
@@ -1795,47 +2202,33 @@ function ProductFormModal({
               ))}
             </div>
 
-            {/* Upload File / Add URL */}
-            <div className="space-y-2 pt-1 border-t border-[#EAE4DC]">
+            {/* Paste Photo URL (Single or Multiple) */}
+            <div className="pt-2 border-t border-[#EAE4DC] space-y-2">
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={newImageLabel}
                   onChange={(e) => setNewImageLabel(e.target.value)}
-                  placeholder="Photo label (e.g. Side View, Tufting Detail, Wardrobe)"
+                  placeholder="Optional label for next link (e.g. Side Angle, Wood Finish)"
                   className="w-full px-2.5 py-1.5 bg-white border border-[#DDD5CA] rounded-xl text-xs text-[#201D1A] focus:outline-hidden focus:border-[#936B3B]"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label className="flex items-center justify-center gap-2 py-2 px-3 bg-white border border-[#DDD5CA] rounded-xl cursor-pointer hover:bg-[#F0EBE3] text-xs font-semibold text-[#201D1A]">
-                  <Upload className="w-3.5 h-3.5 text-[#936B3B]" />
-                  <span>{uploadingImage ? 'Uploading...' : 'Upload Photo'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={uploadingImage}
-                  />
-                </label>
-
-                <div className="flex items-center gap-1">
-                  <input
-                    type="url"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    placeholder="Or paste photo link"
-                    className="flex-1 px-2.5 py-2 bg-white border border-[#DDD5CA] rounded-xl text-xs text-[#201D1A]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddImageUrl}
-                    className="px-3 py-2 bg-[#24201D] text-white rounded-xl text-xs font-bold hover:bg-[#936B3B] cursor-pointer"
-                  >
-                    Add
-                  </button>
-                </div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  placeholder="Paste photo link(s)... (separate multiple with comma)"
+                  className="flex-1 px-2.5 py-2 bg-white border border-[#DDD5CA] rounded-xl text-xs text-[#201D1A]"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  className="px-3.5 py-2 bg-[#24201D] text-white rounded-xl text-xs font-bold hover:bg-[#936B3B] transition-colors cursor-pointer shrink-0"
+                >
+                  Add Link
+                </button>
               </div>
             </div>
           </div>

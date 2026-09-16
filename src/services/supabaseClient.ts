@@ -182,14 +182,14 @@ export async function directPullFromSupabase(): Promise<{
     console.warn('Supabase categories fetch error:', catError);
   }
 
-  // Fetch products
-  const { data: prodData, error: prodError } = await sb.from('products').select('*');
+  // Fetch products (newest first)
+  const { data: prodData, error: prodError } = await sb.from('products').select('*').order('created_at', { ascending: false });
   if (prodError) {
     console.warn('Supabase products fetch error:', prodError);
   }
 
-  // Fetch orders
-  const { data: ordData, error: ordError } = await sb.from('orders').select('*');
+  // Fetch orders (newest first)
+  const { data: ordData, error: ordError } = await sb.from('orders').select('*').order('created_at', { ascending: false });
   if (ordError) {
     console.warn('Supabase orders fetch error:', ordError);
   }
@@ -471,6 +471,8 @@ export async function directGetProducts(params?: {
       query = query.ilike('name', `%${params.search}%`);
     }
 
+    query = query.order('created_at', { ascending: false });
+
     const { data, error } = await query;
     if (error) {
       console.warn('Supabase products fetch error:', error);
@@ -739,7 +741,7 @@ export async function directGetOrders(): Promise<Order[] | null> {
   if (!sb) return null;
 
   try {
-    const { data, error } = await sb.from('orders').select('*');
+    const { data, error } = await sb.from('orders').select('*').order('created_at', { ascending: false });
     if (error || !data || data.length === 0) return null;
     return data.map((o: any) => ({
       id: String(o.id || o.order_number),
