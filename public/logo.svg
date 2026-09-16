@@ -1,0 +1,246 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <!-- Background Canvas Texture -->
+    <radialGradient id="canvasGrad" cx="50%" cy="46%" r="68%">
+      <stop offset="0%" stop-color="#232935" />
+      <stop offset="55%" stop-color="#181D26" />
+      <stop offset="100%" stop-color="#10131A" />
+    </radialGradient>
+
+    <!-- Metallic Gold 3D Gradients -->
+    <linearGradient id="goldHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF8D6" />
+      <stop offset="20%" stop-color="#F7D87E" />
+      <stop offset="45%" stop-color="#CCA040" />
+      <stop offset="70%" stop-color="#F5CE6D" />
+      <stop offset="90%" stop-color="#996822" />
+      <stop offset="100%" stop-color="#FFE8A3" />
+    </linearGradient>
+
+    <linearGradient id="goldShadow" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8C5C1B" />
+      <stop offset="40%" stop-color="#5E3D0F" />
+      <stop offset="75%" stop-color="#B88A30" />
+      <stop offset="100%" stop-color="#4F320A" />
+    </linearGradient>
+
+    <linearGradient id="goldBevelLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF4C7" />
+      <stop offset="35%" stop-color="#E5BA5A" />
+      <stop offset="70%" stop-color="#996C25" />
+      <stop offset="100%" stop-color="#F2C768" />
+    </linearGradient>
+
+    <linearGradient id="goldEmbossText" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF4CA" />
+      <stop offset="30%" stop-color="#E8BF60" />
+      <stop offset="65%" stop-color="#C29237" />
+      <stop offset="100%" stop-color="#8F5E1D" />
+    </linearGradient>
+
+    <linearGradient id="scriptSilver" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="60%" stop-color="#F0F4F8" />
+      <stop offset="100%" stop-color="#D7E0EA" />
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="heavyShieldShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="24" stdDeviation="22" flood-color="#000000" flood-opacity="0.9" />
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.75" />
+    </filter>
+
+    <filter id="gold3dTextShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.95" />
+      <feDropShadow dx="1" dy="1" stdDeviation="0.5" flood-color="#FFF2B8" flood-opacity="0.35" />
+    </filter>
+
+    <filter id="whiteScriptShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000000" flood-opacity="0.95" />
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.8" />
+    </filter>
+
+    <!-- Subtle texture pattern overlay -->
+    <pattern id="grainPattern" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="1" fill="#000000" opacity="0.08" />
+      <circle cx="30" cy="20" r="1" fill="#FFFFFF" opacity="0.04" />
+      <circle cx="20" cy="35" r="1" fill="#000000" opacity="0.06" />
+    </pattern>
+  </defs>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&amp;family=Montserrat:wght@600;700&amp;family=Alex+Brush&amp;display=swap');
+
+    .logo-serif-gr {
+      font-family: 'Cinzel', 'Playfair Display', Georgia, serif;
+      font-weight: 800;
+      letter-spacing: 4px;
+    }
+    .logo-sans-main {
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+    }
+    .logo-script-deal {
+      font-family: 'Alex Brush', 'Playfair Display', 'Brush Script MT', cursive;
+      font-weight: 400;
+      letter-spacing: 0.8px;
+    }
+  </style>
+
+  <!-- Background Matte Canvas -->
+  <rect width="1000" height="1000" fill="url(#canvasGrad)" />
+  <rect width="1000" height="1000" fill="url(#grainPattern)" />
+
+  <!-- Outer Vignette border -->
+  <rect width="1000" height="1000" fill="none" stroke="#080A0E" stroke-width="16" opacity="0.85" />
+
+  <!-- MAIN SHIELD EMBLEM -->
+  <g filter="url(#heavyShieldShadow)">
+    
+    <!-- Outer Shield Silhouette Base -->
+    <!-- Center Top Peak (500, 125) -> Shoulder R (740, 225) -> Side R (735, 650) -> Bottom V-Point (500, 875) -> Side L (265, 650) -> Shoulder L (260, 225) -->
+    <path 
+      d="M 500 125 
+         C 575 175, 665 205, 740 225 
+         L 735 650 
+         C 730 740, 620 825, 500 875 
+         C 380 825, 270 740, 265 650 
+         L 260 225 
+         C 335 205, 425 175, 500 125 Z" 
+      fill="#1A1F29" 
+      stroke="url(#goldShadow)" 
+      stroke-width="22" 
+      stroke-linejoin="round"
+    />
+
+    <!-- Outer Gold Metallic Bevel Rim -->
+    <path 
+      d="M 500 125 
+         C 575 175, 665 205, 740 225 
+         L 735 650 
+         C 730 740, 620 825, 500 875 
+         C 380 825, 270 740, 265 650 
+         L 260 225 
+         C 335 205, 425 175, 500 125 Z" 
+      fill="none" 
+      stroke="url(#goldHighlight)" 
+      stroke-width="10" 
+      stroke-linejoin="round"
+    />
+
+    <!-- Center Ridge Highlight / Chiseled Peak Lines -->
+    <line x1="500" y1="125" x2="500" y2="165" stroke="url(#goldHighlight)" stroke-width="4" stroke-linecap="round" />
+    <line x1="500" y1="875" x2="500" y2="835" stroke="url(#goldHighlight)" stroke-width="4" stroke-linecap="round" />
+
+    <!-- Inner Recessed Shield Groove -->
+    <path 
+      d="M 500 162 
+         C 568 204, 648 230, 712 246 
+         L 707 635 
+         C 702 715, 605 790, 500 835 
+         C 395 790, 298 715, 293 635 
+         L 288 246 
+         C 352 230, 432 204, 500 162 Z" 
+      fill="#161B23" 
+      stroke="url(#goldShadow)" 
+      stroke-width="6" 
+      stroke-linejoin="round"
+    />
+
+    <!-- Inner Shield Gold Pinstripe -->
+    <path 
+      d="M 500 176 
+         C 562 214, 638 238, 698 252 
+         L 694 624 
+         C 689 696, 598 768, 500 812 
+         C 402 768, 311 696, 306 624 
+         L 302 252 
+         C 362 238, 438 214, 500 176 Z" 
+      fill="none" 
+      stroke="url(#goldHighlight)" 
+      stroke-width="3" 
+      stroke-opacity="0.85" 
+      stroke-linejoin="round"
+    />
+
+    <!-- ORNATE FILIGREE SCROLLWORK ON TOP FRAME -->
+    <!-- Left Top Filigree Curves -->
+    <g stroke="url(#goldHighlight)" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+      <path d="M 350 222 C 375 200, 415 195, 440 208 C 458 218, 440 234, 420 226 C 408 220, 414 206, 432 206" />
+      <path d="M 305 240 C 324 226, 348 222, 368 232 C 374 236, 368 244, 358 241" />
+      <circle cx="415" cy="220" r="2.8" fill="url(#goldHighlight)" />
+      <circle cx="348" cy="232" r="2" fill="url(#goldHighlight)" />
+    </g>
+
+    <!-- Right Top Filigree Curves (Mirrored) -->
+    <g stroke="url(#goldHighlight)" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+      <path d="M 650 222 C 625 200, 585 195, 560 208 C 542 218, 560 234, 580 226 C 592 220, 586 206, 568 206" />
+      <path d="M 695 240 C 676 226, 652 222, 632 232 C 626 236, 632 244, 642 241" />
+      <circle cx="585" cy="220" r="2.8" fill="url(#goldHighlight)" />
+      <circle cx="652" cy="232" r="2" fill="url(#goldHighlight)" />
+    </g>
+
+    <!-- BOTTOM V-POINT FILIGREE EMBELLISHMENT -->
+    <g stroke="url(#goldHighlight)" fill="none" stroke-width="3" stroke-linecap="round" opacity="0.9">
+      <path d="M 500 775 C 480 750, 450 754, 444 775 C 438 794, 468 806, 488 791 C 498 784, 494 769, 482 769" />
+      <path d="M 500 775 C 520 750, 550 754, 556 775 C 562 794, 532 806, 512 791 C 502 784, 506 769, 518 769" />
+      <circle cx="500" cy="795" r="3.2" fill="url(#goldHighlight)" />
+    </g>
+  </g>
+
+  <!-- TYPOGRAPHY LAYER -->
+  <!-- 1. "GR" - Large Upper Serif Display -->
+  <text 
+    x="500" 
+    y="380" 
+    text-anchor="middle" 
+    class="logo-serif-gr" 
+    font-size="138" 
+    fill="url(#goldEmbossText)" 
+    filter="url(#gold3dTextShadow)"
+  >
+    GR
+  </text>
+
+  <!-- 2. "furniture" - Lowercase modern sans-serif -->
+  <text 
+    x="500" 
+    y="500" 
+    text-anchor="middle" 
+    class="logo-sans-main" 
+    font-size="78" 
+    fill="url(#goldEmbossText)" 
+    filter="url(#gold3dTextShadow)"
+  >
+    furniture
+  </text>
+
+  <!-- 3. "lahore" - Lowercase modern sans-serif -->
+  <text 
+    x="500" 
+    y="620" 
+    text-anchor="middle" 
+    class="logo-sans-main" 
+    font-size="78" 
+    fill="url(#goldEmbossText)" 
+    filter="url(#gold3dTextShadow)"
+  >
+    lahore
+  </text>
+
+  <!-- 4. "wholesale dealer" - White / Platinum Cursive Script across lower shield -->
+  <g filter="url(#whiteScriptShadow)">
+    <text 
+      x="500" 
+      y="712" 
+      text-anchor="middle" 
+      class="logo-script-deal" 
+      font-size="78" 
+      fill="url(#scriptSilver)" 
+      font-style="italic"
+    >
+      wholesale dealer
+    </text>
+  </g>
+</svg>

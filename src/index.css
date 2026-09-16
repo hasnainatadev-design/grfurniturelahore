@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #FAF7F2;
+    color: #4A3E36;
+  }
+}
+
+.font-serif-luxury {
+  font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+}
+
+/* Custom range slider styling */
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #6E4D2E;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  border: 2px solid #FAF7F2;
+  transition: transform 0.15s ease-in-out;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  background: #583B20;
+}
+
+/* Smooth momentum scrolling for mobile horizontal containers */
+.momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar while preserving scrolling */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Subtle image scale animation */
+.img-zoom-hover {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.group:hover .img-zoom-hover {
+  transform: scale(1.04);
+}
+

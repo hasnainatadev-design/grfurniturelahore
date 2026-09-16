@@ -1,0 +1,6 @@
+{
+  "name": "GR Furniture",
+  "description": "Official website of GR Furniture Lahore - Wholesale Dealer & Master Woodcraft Factory. Handcrafted solid wood beds, luxury velvet sofas, marble dining tables, and bespoke furniture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
